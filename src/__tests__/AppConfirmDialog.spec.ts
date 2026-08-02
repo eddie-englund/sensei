@@ -1,29 +1,35 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 
-import { mount } from '@vue/test-utils'
+import { mount, DOMWrapper } from '@vue/test-utils'
 import AppConfirmDialog from '../components/AppConfirmDialog.vue'
+
+const body = new DOMWrapper(document.body)
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
 
 describe('AppConfirmDialog', () => {
   it('renders nothing when closed', () => {
-    const wrapper = mount(AppConfirmDialog, {
+    mount(AppConfirmDialog, {
       props: { open: false, title: 'Title', message: 'Message' },
     })
-    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
+    expect(body.find('[role="alertdialog"]').exists()).toBe(false)
   })
 
   it('renders title and message when open', () => {
-    const wrapper = mount(AppConfirmDialog, {
+    mount(AppConfirmDialog, {
       props: { open: true, title: 'Replace your current mesocycle?', message: 'This will end it.' },
     })
-    expect(wrapper.text()).toContain('Replace your current mesocycle?')
-    expect(wrapper.text()).toContain('This will end it.')
+    expect(body.text()).toContain('Replace your current mesocycle?')
+    expect(body.text()).toContain('This will end it.')
   })
 
   it('emits confirm and cancel', async () => {
     const wrapper = mount(AppConfirmDialog, {
       props: { open: true, title: 'Title', message: 'Message' },
     })
-    const buttons = wrapper.findAll('button')
+    const buttons = body.findAll('button')
     await buttons.find((b) => b.text() === 'Cancel')!.trigger('click')
     expect(wrapper.emitted('cancel')).toBeTruthy()
 

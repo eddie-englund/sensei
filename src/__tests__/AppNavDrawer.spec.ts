@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 
-import { mount } from '@vue/test-utils'
+import { mount, DOMWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import AppNavDrawer from '../components/AppNavDrawer.vue'
@@ -17,24 +17,30 @@ function createTestRouter() {
   })
 }
 
+const body = new DOMWrapper(document.body)
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
+
 describe('AppNavDrawer', () => {
   it('renders nothing when closed', () => {
-    const wrapper = mount(AppNavDrawer, {
+    mount(AppNavDrawer, {
       props: { open: false },
       global: { plugins: [createPinia(), createTestRouter()] },
     })
-    expect(wrapper.find('aside').exists()).toBe(false)
+    expect(body.find('aside').exists()).toBe(false)
   })
 
   it('renders the menu items when open', () => {
-    const wrapper = mount(AppNavDrawer, {
+    mount(AppNavDrawer, {
       props: { open: true },
       global: { plugins: [createPinia(), createTestRouter()] },
     })
-    expect(wrapper.find('aside').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Plan mesocycle')
-    expect(wrapper.text()).toContain('View workouts')
-    expect(wrapper.text()).toContain('Sign out')
+    expect(body.find('aside').exists()).toBe(true)
+    expect(body.text()).toContain('Plan mesocycle')
+    expect(body.text()).toContain('View workouts')
+    expect(body.text()).toContain('Sign out')
   })
 
   it('closes on backdrop click', async () => {
@@ -42,8 +48,8 @@ describe('AppNavDrawer', () => {
       props: { open: true },
       global: { plugins: [createPinia(), createTestRouter()] },
     })
-    await wrapper.find('.fixed.inset-0').trigger('click')
-    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
+    await body.find('.fixed.inset-0').trigger('click')
+    expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
 
   it('navigates to plan mesocycle and closes', async () => {
@@ -53,9 +59,9 @@ describe('AppNavDrawer', () => {
       props: { open: true },
       global: { plugins: [createPinia(), router] },
     })
-    await wrapper.findAll('button').find((b) => b.text() === 'Plan mesocycle')!.trigger('click')
+    await body.findAll('button').find((b) => b.text() === 'Plan mesocycle')!.trigger('click')
     expect(pushSpy).toHaveBeenCalledWith({ name: '/mesocycles/plan' })
-    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
+    expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
 
   it('navigates to view workouts and closes', async () => {
@@ -65,21 +71,22 @@ describe('AppNavDrawer', () => {
       props: { open: true },
       global: { plugins: [createPinia(), router] },
     })
-    await wrapper.findAll('button').find((b) => b.text() === 'View workouts')!.trigger('click')
+    await body.findAll('button').find((b) => b.text() === 'View workouts')!.trigger('click')
     expect(pushSpy).toHaveBeenCalledWith({ name: '/workouts/list' })
-    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
+    expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
 
   it('signs out and closes', async () => {
+    const pinia = createPinia()
     const wrapper = mount(AppNavDrawer, {
       props: { open: true },
-      global: { plugins: [createPinia(), createTestRouter()] },
+      global: { plugins: [pinia, createTestRouter()] },
     })
-    const auth = useAuthStore()
+    const auth = useAuthStore(pinia)
     const signOutSpy = vi.spyOn(auth, 'signOut').mockResolvedValue()
 
-    await wrapper.findAll('button').find((b) => b.text() === 'Sign out')!.trigger('click')
+    await body.findAll('button').find((b) => b.text() === 'Sign out')!.trigger('click')
     expect(signOutSpy).toHaveBeenCalled()
-    expect(wrapper.emitted('update:open')?.at(-1)).toEqual([false])
+    expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
 })
