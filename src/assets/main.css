@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@import '@fontsource/google-sans-flex/400.css';
+@import '@fontsource/google-sans-flex/500.css';
+@import '@fontsource/google-sans-flex/600.css';
+@import '@fontsource/google-sans-flex/700.css';
+@import '@fontsource/google-sans-flex/800.css';
+@import '@fontsource/google-sans-code/400.css';
+@import '@fontsource/google-sans-code/500.css';
+@import '@fontsource/google-sans-code/600.css';
+@import '@fontsource/google-sans-code/700.css';
+
+@theme {
+  --font-sans: 'Google Sans Flex', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Google Sans Code', ui-monospace, monospace;
+
+  --color-ink: #0c0e10;
+  --color-surface: #17191c;
+  --color-surface-raised: #1e2124;
+  --color-line: #2b2f33;
+  --color-chalk: #edeae2;
+  --color-mist: #8b9096;
+  --color-brass: #d9a441;
+  --color-brass-dim: #b0812f;
+  --color-ember: #e85c33;
+
+  --animate-plate-drop: plate-drop 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+@keyframes plate-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem) scaleX(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
+  }
+}
+
+/* dark-mode-only: fixed palette regardless of OS scheme, no light variant */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-ink);
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-chalk);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
