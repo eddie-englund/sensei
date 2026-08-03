@@ -1,0 +1,15 @@
+name,muscle_group,equipment,is_custom
+"Bench Press (Incline,Medium Grip)",chest,free-weight,false
+"Bench Press (Incline,Narrow Grip)",chest,free-weight,false
+"Dumbbell Flye (Incline)",chest,free-weight,false
+"Cable Overhead Triceps Extension",triceps,cable,false
+"Cable Rope Facepull",shoulders,cable,false
+"Lat Machine Convergent",back,machine,false
+"Seated Cable Pullover",back,cable,false
+"Seated Cable Row",back,cable,false
+"Lying Biceps Dumbbell Curl",biceps,free-weight,false
+"Dumbbell Lateral Raise",shoulders,free-weight,false
+"Dumbbell Upright Row",shoulders,free-weight,false
+"Hip Abduction Machine",glutes,machine,false
+"Hip Adduction Machine",quads,machine,false
+"Walking Lunges",glutes,bodyweight-loadable,false
