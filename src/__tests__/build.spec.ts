@@ -33,7 +33,7 @@ vi.mock('@/utils/supabase', () => {
       },
       then: (resolve: (value: { data: unknown; error: null }) => void) => {
         if (hasSingle) {
-          resolve({ data: { id: `${table}-id`, ...(insertedRows[0] ?? {}) }, error: null })
+          resolve({ data: { id: `${table}-id`, ...insertedRows[0] }, error: null })
           return
         }
         resolve({

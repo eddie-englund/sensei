@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 import { useMesocyclesStore } from '@/stores/mesocycles'
-import AppButton from '@/components/AppButton.vue'
 
 interface Template {
   id: string
@@ -42,7 +41,6 @@ function startFromClone(mesocycleId: string) {
 <template>
   <div class="flex flex-1 flex-col">
     <header class="flex items-center gap-3 border-b border-line px-5 py-4">
-      <AppButton variant="ghost" @click="router.back()">Back</AppButton>
       <h1 class="font-sans font-bold text-lg tracking-tight text-chalk">Plan mesocycle</h1>
     </header>
 
@@ -60,7 +58,9 @@ function startFromClone(mesocycleId: string) {
       </section>
 
       <section class="flex flex-col gap-3">
-        <h2 class="text-sm font-semibold tracking-wide text-mist uppercase">Predefined templates</h2>
+        <h2 class="text-sm font-semibold tracking-wide text-mist uppercase">
+          Predefined templates
+        </h2>
         <div class="flex flex-col gap-2">
           <button
             v-for="template in templates"

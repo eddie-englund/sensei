@@ -2,7 +2,6 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkoutsStore } from '@/stores/workouts'
-import AppButton from '@/components/AppButton.vue'
 
 const router = useRouter()
 const workouts = useWorkoutsStore()
@@ -38,7 +37,6 @@ function goToWorkout(id: string) {
 <template>
   <div class="flex flex-1 flex-col">
     <header class="flex items-center gap-3 border-b border-line px-5 py-4">
-      <AppButton variant="ghost" @click="router.back()">Back</AppButton>
       <h1 class="font-sans font-bold text-lg tracking-tight text-chalk">Workouts</h1>
     </header>
 

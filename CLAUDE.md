@@ -21,6 +21,7 @@ pnpm lint             # oxlint --fix, then eslint --fix
 pnpm format           # oxfmt src/
 ```
 
+run unit tests and e2e tests after every change and add more when you create new features/functionality.
 No semicolons, single quotes (enforced by oxfmt, see `.oxfmtrc.json`).
 
 ## Architecture

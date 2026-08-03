@@ -314,7 +314,6 @@ async function persistMesocycle() {
 <template>
   <div class="flex flex-1 flex-col">
     <header class="flex items-center gap-3 border-b border-line px-5 py-4">
-      <AppButton variant="ghost" @click="router.back()">Back</AppButton>
       <h1 class="font-sans font-bold text-lg tracking-tight text-chalk">Build mesocycle</h1>
     </header>
 

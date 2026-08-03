@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useWorkoutsStore } from '@/stores/workouts'
 import type { ExerciseDetail, WorkoutDetail } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
+import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
 
 const route = useRoute('/workouts/[id]')
 const router = useRouter()
@@ -12,6 +13,7 @@ const workouts = useWorkoutsStore()
 
 const detail = ref<WorkoutDetail | null>(null)
 const loading = ref(true)
+const switcherOpen = ref(false)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
 
 interface FirstSetWeightSnapshot {
@@ -152,14 +154,29 @@ async function logSet(exerciseId: string, setNumber: number) {
 <template>
   <div class="flex flex-1 flex-col">
     <header class="flex items-center gap-3 border-b border-line px-5 py-4">
-      <AppButton variant="ghost" @click="router.back()">Back</AppButton>
       <div class="flex-1">
         <h1 class="font-sans font-bold text-lg tracking-tight text-chalk">{{ detail?.name }}</h1>
         <p v-if="detail" class="text-sm text-mist">
           Week {{ detail.weekNumber }}{{ detail.isDeload ? ' · Deload' : '' }}
         </p>
       </div>
+      <AppButton variant="icon" aria-label="Jump to workout" @click="switcherOpen = true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-5 w-5"
+        >
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+      </AppButton>
     </header>
+
+    <WorkoutSwitcherSheet v-model:open="switcherOpen" :current-workout-id="detail?.id ?? null" />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>
