@@ -132,6 +132,130 @@ function buildWeekSummaries(weeks: WeekRow[]): WeekSummary[] {
   }))
 }
 
+interface TemplateExercise {
+  exercise_id: string
+  order_index: number
+  target_sets: number
+}
+
+interface TemplateWorkout {
+  day_number: number
+  name: string
+  mesocycle_workout_exercises: TemplateExercise[]
+}
+
+async function fetchWeekOnePattern(mesocycleId: string): Promise<TemplateWorkout[]> {
+  const { data: week1 } = await supabase
+    .from('mesocycle_weeks')
+    .select('id')
+    .eq('mesocycle_id', mesocycleId)
+    .eq('week_number', 1)
+    .single()
+
+  if (!week1) return []
+
+  const { data } = await supabase
+    .from('mesocycle_workouts')
+    .select(
+      'day_number, name, mesocycle_workout_exercises ( exercise_id, order_index, target_sets )',
+    )
+    .eq('mesocycle_week_id', week1.id)
+    .order('day_number')
+
+  return (data ?? []) as unknown as TemplateWorkout[]
+}
+
+async function lengthenMesocycle(
+  mesocycleId: string,
+  currentWeeks: WeekRow[],
+  currentCount: number,
+  newWeekCount: number,
+) {
+  const template = await fetchWeekOnePattern(mesocycleId)
+  if (template.length === 0) return
+
+  const oldLastWeek = currentWeeks.find((week) => week.week_number === currentCount)
+  if (oldLastWeek?.is_deload) {
+    await supabase.from('mesocycle_weeks').update({ is_deload: false }).eq('id', oldLastWeek.id)
+  }
+
+  const weekNumbers = Array.from(
+    { length: newWeekCount - currentCount },
+    (_, i) => currentCount + 1 + i,
+  )
+
+  const { data: insertedWeeks, error: weeksError } = await supabase
+    .from('mesocycle_weeks')
+    .insert(
+      weekNumbers.map((weekNumber) => ({
+        mesocycle_id: mesocycleId,
+        week_number: weekNumber,
+        is_deload: weekNumber === newWeekCount,
+      })),
+    )
+    .select('id,week_number')
+
+  if (weeksError || !insertedWeeks) throw weeksError ?? new Error('Could not add weeks.')
+
+  const workoutRows = insertedWeeks.flatMap((week) =>
+    template.map((workout) => ({
+      mesocycle_week_id: week.id,
+      day_number: workout.day_number,
+      name: workout.name,
+    })),
+  )
+
+  const { data: insertedWorkouts, error: workoutsError } = await supabase
+    .from('mesocycle_workouts')
+    .insert(workoutRows)
+    .select('id,mesocycle_week_id,day_number')
+
+  if (workoutsError || !insertedWorkouts)
+    throw workoutsError ?? new Error('Could not add workouts.')
+
+  const templateByDayNumber = new Map(template.map((workout) => [workout.day_number, workout]))
+
+  const exerciseRows = insertedWorkouts.flatMap((workout) => {
+    const templateWorkout = templateByDayNumber.get(workout.day_number)
+    return (templateWorkout?.mesocycle_workout_exercises ?? []).map((exercise) => ({
+      mesocycle_workout_id: workout.id,
+      exercise_id: exercise.exercise_id,
+      order_index: exercise.order_index,
+      target_sets: exercise.target_sets,
+    }))
+  })
+
+  if (exerciseRows.length > 0) {
+    const { error: exercisesError } = await supabase
+      .from('mesocycle_workout_exercises')
+      .insert(exerciseRows)
+    if (exercisesError) throw exercisesError
+  }
+}
+
+async function shortenMesocycle(
+  mesocycleId: string,
+  currentWeeks: WeekRow[],
+  newWeekCount: number,
+) {
+  const { error: deleteError } = await supabase
+    .from('mesocycle_weeks')
+    .delete()
+    .eq('mesocycle_id', mesocycleId)
+    .gt('week_number', newWeekCount)
+
+  if (deleteError) throw deleteError
+
+  const newLastWeek = currentWeeks.find((week) => week.week_number === newWeekCount)
+  if (newLastWeek && !newLastWeek.is_deload) {
+    const { error: updateError } = await supabase
+      .from('mesocycle_weeks')
+      .update({ is_deload: true })
+      .eq('id', newLastWeek.id)
+    if (updateError) throw updateError
+  }
+}
+
 async function resolveReferenceWeekId(
   mesocycleId: string,
   weekNumber: number,
@@ -351,6 +475,30 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     }
   }
 
+  async function updateMesocycleLength(newWeekCount: number) {
+    if (!activeMesocycle.value) return { error: new Error('No active mesocycle.') }
+    if (newWeekCount < 1) return { error: null }
+
+    const mesocycleId = activeMesocycle.value.id
+    const currentWeeks = structure.value
+    const currentCount = currentWeeks.length
+    if (newWeekCount === currentCount) return { error: null }
+
+    try {
+      if (newWeekCount > currentCount) {
+        await lengthenMesocycle(mesocycleId, currentWeeks, currentCount, newWeekCount)
+      } else {
+        await shortenMesocycle(mesocycleId, currentWeeks, newWeekCount)
+      }
+      await fetchActiveMesocycleStructure()
+      return { error: null }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error : new Error('Could not update mesocycle length.'),
+      }
+    }
+  }
+
   async function logSet(input: {
     mesocycleWorkoutExerciseId: string
     setNumber: number
@@ -371,6 +519,16 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     return { error }
   }
 
+  async function addSet(mesocycleWorkoutExerciseId: string, currentTargetSets: number) {
+    const targetSets = currentTargetSets + 1
+    const { error } = await supabase
+      .from('mesocycle_workout_exercises')
+      .update({ target_sets: targetSets })
+      .eq('id', mesocycleWorkoutExerciseId)
+
+    return { targetSets: error ? null : targetSets, error }
+  }
+
   return {
     activeMesocycle,
     structure,
@@ -381,5 +539,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     fetchActiveMesocycleStructure,
     fetchWorkoutDetail,
     logSet,
+    addSet,
+    updateMesocycleLength,
   }
 })

@@ -149,6 +149,24 @@ async function logSet(exerciseId: string, setNumber: number) {
   detail.value.complete = detail.value.exercises.every(isExerciseFullyLogged)
   if (detail.value.complete) await refreshCompletionState(detail.value.id)
 }
+
+async function addSet(exercise: ExerciseDetail) {
+  const { targetSets, error } = await workouts.addSet(exercise.id, exercise.targetSets)
+  if (error || targetSets === null) return
+
+  const newSetNumber = exercise.sets.reduce((max, set) => Math.max(max, set.setNumber), 0) + 1
+
+  exercise.targetSets = targetSets
+  exercise.sets.push({
+    setNumber: newSetNumber,
+    weight: null,
+    reps: null,
+    completedAt: null,
+    weightPrefill: null,
+    repsPlaceholder: null,
+  })
+  draft[draftKey(exercise.id, newSetNumber)] = { weight: '', reps: '' }
+}
 </script>
 
 <template>
@@ -206,6 +224,7 @@ async function logSet(exerciseId: string, setNumber: number) {
               <input
                 v-model="draft[draftKey(exercise.id, set.setNumber)]!.weight"
                 type="number"
+                step="0.01"
                 inputmode="decimal"
                 placeholder="Weight"
                 class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
@@ -227,6 +246,15 @@ async function logSet(exerciseId: string, setNumber: number) {
               </AppButton>
             </template>
           </div>
+
+          <AppButton
+            v-if="!detail.complete"
+            variant="ghost"
+            class="self-start"
+            @click="addSet(exercise)"
+          >
+            + Add set
+          </AppButton>
         </div>
 
         <AppButton v-if="nextWorkoutId" class="w-full" @click="goToNextWorkout">
