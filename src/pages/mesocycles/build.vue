@@ -359,7 +359,7 @@ async function persistMesocycle() {
                 v-model="workout.name"
                 type="text"
                 :placeholder="`Day ${workoutIndex + 1} name (e.g. Push)`"
-                class="flex-1 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
+                class="flex-1 rounded-lg border border-line bg-surface-raised px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
               />
               <AppButton variant="ghost" @click="removeWorkout(workout.key)">Remove</AppButton>
             </div>

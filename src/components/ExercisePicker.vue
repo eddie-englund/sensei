@@ -63,7 +63,7 @@ function select(exerciseId: string) {
           v-model="search"
           type="text"
           placeholder="Search exercises…"
-          class="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
+          class="w-full rounded-lg border border-line bg-surface px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
         />
         <div class="flex-1 overflow-y-auto">
           <div v-for="[group, exercises] in grouped" :key="group" class="mb-3">

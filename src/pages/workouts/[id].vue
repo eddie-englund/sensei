@@ -228,7 +228,7 @@ async function addSet(exercise: ExerciseDetail) {
                 type="text"
                 inputmode="decimal"
                 placeholder="Weight"
-                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
+                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
                 @input="setIndex === 0 && onFirstSetWeightInput(exercise)"
               />
               <input
@@ -236,7 +236,7 @@ async function addSet(exercise: ExerciseDetail) {
                 type="number"
                 inputmode="numeric"
                 :placeholder="set.repsPlaceholder !== null ? `${set.repsPlaceholder} reps` : 'Reps'"
-                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <AppButton
                 variant="secondary"
