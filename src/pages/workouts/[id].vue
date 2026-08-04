@@ -6,6 +6,7 @@ import { useWorkoutsStore } from '@/stores/workouts'
 import type { ExerciseDetail, WorkoutDetail } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
 import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
+import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
 const router = useRouter()
@@ -112,7 +113,8 @@ function onFirstSetWeightInput(exercise: ExerciseDetail) {
 
 function canLog(exerciseId: string, setNumber: number) {
   const entry = draft[draftKey(exerciseId, setNumber)]
-  return !!entry?.weight && !!entry?.reps
+  if (!entry?.weight || !entry?.reps) return false
+  return !Number.isNaN(parseDecimalInput(entry.weight))
 }
 
 function isExerciseFullyLogged(exercise: ExerciseDetail) {
@@ -123,7 +125,7 @@ async function logSet(exerciseId: string, setNumber: number) {
   const entry = draft[draftKey(exerciseId, setNumber)]
   if (!entry?.weight || !entry.reps) return
 
-  const weight = Number(entry.weight)
+  const weight = parseDecimalInput(entry.weight)
   const reps = Number(entry.reps)
   if (Number.isNaN(weight) || Number.isNaN(reps)) return
 
@@ -223,11 +225,10 @@ async function addSet(exercise: ExerciseDetail) {
             <template v-else>
               <input
                 v-model="draft[draftKey(exercise.id, set.setNumber)]!.weight"
-                type="number"
-                step="0.01"
+                type="text"
                 inputmode="decimal"
                 placeholder="Weight"
-                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-sm text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
                 @input="setIndex === 0 && onFirstSetWeightInput(exercise)"
               />
               <input
