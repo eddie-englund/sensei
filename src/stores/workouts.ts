@@ -730,6 +730,69 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     return { error: cleanupError }
   }
 
+  async function swapExercise(input: {
+    mesocycleWorkoutExerciseId: string
+    newExerciseId: string
+    scope: 'week' | 'mesocycle'
+  }) {
+    const { data: current } = await supabase
+      .from('mesocycle_workout_exercises')
+      .select(
+        `
+        id, order_index,
+        mesocycle_workouts!inner (
+          day_number,
+          mesocycle_weeks!inner ( week_number, mesocycle_id )
+        )
+      `,
+      )
+      .eq('id', input.mesocycleWorkoutExerciseId)
+      .single()
+
+    if (!current) return { error: new Error('Exercise not found') }
+
+    let targetIds = [input.mesocycleWorkoutExerciseId]
+
+    if (input.scope === 'mesocycle') {
+      const workout = current.mesocycle_workouts as unknown as Row
+      const week = workout.mesocycle_weeks as unknown as Row
+
+      // Weeks duplicate the whole workout structure independently — the only
+      // link between "the same exercise slot" across weeks is its position
+      // (day_number + order_index), so find every later week's matching row.
+      const { data: laterRows } = await supabase
+        .from('mesocycle_workout_exercises')
+        .select(
+          `
+          id,
+          mesocycle_workouts!inner (
+            day_number,
+            mesocycle_weeks!inner ( week_number, mesocycle_id )
+          )
+        `,
+        )
+        .eq('order_index', current.order_index)
+        .eq('mesocycle_workouts.day_number', workout.day_number as number)
+        .eq('mesocycle_workouts.mesocycle_weeks.mesocycle_id', week.mesocycle_id as string)
+        .gte('mesocycle_workouts.mesocycle_weeks.week_number', week.week_number as number)
+
+      targetIds = (laterRows ?? []).map((row) => row.id as string)
+    }
+
+    const { error: deleteError } = await supabase
+      .from('workout_sets')
+      .delete()
+      .in('mesocycle_workout_exercise_id', targetIds)
+    if (deleteError) return { error: deleteError }
+
+    const { error } = await supabase
+      .from('mesocycle_workout_exercises')
+      .update({ exercise_id: input.newExerciseId })
+      .in('id', targetIds)
+
+    return { error }
+  }
+
   return {
     activeMesocycle,
     structure,
@@ -744,6 +807,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     addSet,
     saveExerciseNote,
     deleteExerciseNote,
+    swapExercise,
     updateMesocycleLength,
     endMesocycle,
   }

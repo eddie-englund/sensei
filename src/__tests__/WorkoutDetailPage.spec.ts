@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkoutDetailPage from '../pages/workouts/[id].vue'
 import { useWorkoutsStore } from '../stores/workouts'
+import { useExercisesStore } from '../stores/exercises'
 import type { WorkoutDetail } from '../stores/workouts'
 
 const body = new DOMWrapper(document.body)
@@ -48,6 +49,14 @@ async function mountPage(detail: WorkoutDetail) {
   const addSetSpy = vi.spyOn(workouts, 'addSet').mockResolvedValue({ targetSets: 3, error: null })
   const saveNoteSpy = vi.spyOn(workouts, 'saveExerciseNote').mockResolvedValue({ error: null })
   const historySpy = vi.spyOn(workouts, 'fetchExerciseHistory').mockResolvedValue([])
+  const swapSpy = vi.spyOn(workouts, 'swapExercise').mockResolvedValue({ error: null })
+
+  const exercises = useExercisesStore(pinia)
+  exercises.exercises = [
+    { id: 'ex-bench', name: 'Bench Press', muscle_group: 'Chest', equipment: 'Barbell' },
+    { id: 'ex-squat', name: 'Squat', muscle_group: 'Legs', equipment: 'Barbell' },
+  ]
+  exercises.loaded = true
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -59,7 +68,7 @@ async function mountPage(detail: WorkoutDetail) {
   const wrapper = mount(WorkoutDetailPage, { global: { plugins: [pinia, router] } })
   await flushPromises()
 
-  return { wrapper, workouts, addSetSpy, saveNoteSpy, historySpy }
+  return { wrapper, workouts, addSetSpy, saveNoteSpy, historySpy, swapSpy }
 }
 
 describe('workout detail page — add set', () => {
@@ -129,15 +138,71 @@ describe('workout detail page — exercise notes', () => {
 })
 
 describe('workout detail page — exercise history', () => {
-  it('opens the history sheet and fetches history for the exercise', async () => {
+  it('opens the history sheet via the exercise options menu', async () => {
     const { wrapper, historySpy } = await mountPage(detailFor(false))
 
-    await wrapper.find('[aria-label="Exercise history"]').trigger('click')
+    await wrapper.find('[aria-label="Exercise options"]').trigger('click')
+    const viewHistory = body.findAll('button').find((b) => b.text() === 'View history')!
+    await viewHistory.trigger('click')
     await flushPromises()
 
     expect(historySpy).toHaveBeenCalledWith('ex-bench')
     expect(body.text()).toContain('Bench Press')
     expect(body.text()).toContain('No sets logged yet for this exercise.')
+  })
+})
+
+describe('workout detail page — exercise swap', () => {
+  it('opens the swap sheet via the exercise options menu and swaps for this week only', async () => {
+    const { wrapper, swapSpy } = await mountPage(detailFor(false))
+
+    await wrapper.find('[aria-label="Exercise options"]').trigger('click')
+    const swapAction = body.findAll('button').find((b) => b.text() === 'Swap exercise')!
+    await swapAction.trigger('click')
+
+    const picker = body.findAll('button').find((b) => b.text() === 'Select exercise')!
+    await picker.trigger('click')
+    const squatOption = body.findAll('button').find((b) => b.text() === 'Squat')!
+    await squatOption.trigger('click')
+
+    const confirmSwap = body.findAll('button').find((b) => b.text() === 'Swap exercise')!
+    await confirmSwap.trigger('click')
+    await flushPromises()
+
+    expect(swapSpy).toHaveBeenCalledWith({
+      mesocycleWorkoutExerciseId: 'exercise-1',
+      newExerciseId: 'ex-squat',
+      scope: 'week',
+    })
+  })
+
+  it('confirms before swapping an exercise that already has logged sets', async () => {
+    const { wrapper, swapSpy } = await mountPage(detailFor(true))
+
+    await wrapper.find('[aria-label="Exercise options"]').trigger('click')
+    const swapAction = body.findAll('button').find((b) => b.text() === 'Swap exercise')!
+    await swapAction.trigger('click')
+
+    const picker = body.findAll('button').find((b) => b.text() === 'Select exercise')!
+    await picker.trigger('click')
+    const squatOption = body.findAll('button').find((b) => b.text() === 'Squat')!
+    await squatOption.trigger('click')
+
+    const swapButton = body.findAll('button').find((b) => b.text() === 'Swap exercise')!
+    await swapButton.trigger('click')
+
+    expect(swapSpy).not.toHaveBeenCalled()
+    expect(body.text()).toContain('Swap exercise?')
+
+    const confirmButtons = body.findAll('button').filter((b) => b.text() === 'Swap exercise')
+    await confirmButtons[confirmButtons.length - 1]!.trigger('click')
+    await flushPromises()
+
+    expect(swapSpy).toHaveBeenCalledWith({
+      mesocycleWorkoutExerciseId: 'exercise-1',
+      newExerciseId: 'ex-squat',
+      scope: 'week',
+    })
   })
 })
 

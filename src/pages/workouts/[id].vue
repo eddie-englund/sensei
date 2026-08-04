@@ -9,6 +9,8 @@ import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
 import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
 import ExerciseNoteSheet from '@/components/ExerciseNoteSheet.vue'
 import ExerciseHistorySheet from '@/components/ExerciseHistorySheet.vue'
+import ExerciseActionsSheet from '@/components/ExerciseActionsSheet.vue'
+import ExerciseSwapSheet from '@/components/ExerciseSwapSheet.vue'
 import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
@@ -23,6 +25,9 @@ const noteSheetOpen = ref(false)
 const activeNoteExercise = ref<ExerciseDetail | null>(null)
 const historySheetOpen = ref(false)
 const activeHistoryExercise = ref<ExerciseDetail | null>(null)
+const exerciseActionsOpen = ref(false)
+const swapSheetOpen = ref(false)
+const actionsSheetExercise = ref<ExerciseDetail | null>(null)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
 
 interface FirstSetWeightSnapshot {
@@ -183,9 +188,39 @@ function openNoteSheet(exercise: ExerciseDetail) {
   noteSheetOpen.value = true
 }
 
-function openHistorySheet(exercise: ExerciseDetail) {
-  activeHistoryExercise.value = exercise
+function openExerciseActions(exercise: ExerciseDetail) {
+  actionsSheetExercise.value = exercise
+  exerciseActionsOpen.value = true
+}
+
+function onViewHistory() {
+  if (!actionsSheetExercise.value) return
+  activeHistoryExercise.value = actionsSheetExercise.value
   historySheetOpen.value = true
+}
+
+function onChooseSwap() {
+  swapSheetOpen.value = true
+}
+
+async function onSwap({
+  newExerciseId,
+  scope,
+}: {
+  newExerciseId: string
+  scope: 'week' | 'mesocycle'
+}) {
+  const exercise = actionsSheetExercise.value
+  if (!exercise) return
+
+  const { error } = await workouts.swapExercise({
+    mesocycleWorkoutExerciseId: exercise.id,
+    newExerciseId,
+    scope,
+  })
+  if (error) return
+
+  await load()
 }
 
 async function onSaveNote({ content, pinned }: { content: string; pinned: boolean }) {
@@ -274,6 +309,21 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
       :exercise-id="activeHistoryExercise.exerciseId"
       :exercise-name="activeHistoryExercise.name"
     />
+    <ExerciseActionsSheet
+      v-if="actionsSheetExercise"
+      v-model:open="exerciseActionsOpen"
+      :exercise-name="actionsSheetExercise.name"
+      @view-history="onViewHistory"
+      @swap="onChooseSwap"
+    />
+    <ExerciseSwapSheet
+      v-if="actionsSheetExercise"
+      v-model:open="swapSheetOpen"
+      :exercise-name="actionsSheetExercise.name"
+      :current-exercise-id="actionsSheetExercise.exerciseId"
+      :has-logged-sets="actionsSheetExercise.sets.some((set) => set.completedAt !== null)"
+      @swap="onSwap"
+    />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>
@@ -290,8 +340,8 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
             <p class="text-base font-medium text-chalk">{{ exercise.name }}</p>
             <AppButton
               variant="icon"
-              aria-label="Exercise history"
-              @click="openHistorySheet(exercise)"
+              aria-label="Exercise options"
+              @click="openExerciseActions(exercise)"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -302,7 +352,9 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
                 stroke-linejoin="round"
                 class="h-5 w-5"
               >
-                <path d="M4 20V10M12 20V4M20 20v-7" />
+                <circle cx="12" cy="5" r="1.4" />
+                <circle cx="12" cy="12" r="1.4" />
+                <circle cx="12" cy="19" r="1.4" />
               </svg>
             </AppButton>
           </div>

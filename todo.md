@@ -5,4 +5,4 @@
 - [x] Notes on exercies
 - [ ] Skip set, Remove set, Myorep set, Myorep match set
 - [ ] Change exercise (allow user to switch only for that week or for that week and the rest of the mesocyle)
-- [ ] Exercise insights (see weights & reps for that exercise via current workout)
+- [x] Exercise insights (see weights & reps for that exercise via current workout)
