@@ -7,6 +7,7 @@ import type { ExerciseDetail, WorkoutDetail } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
 import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
 import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
+import ExerciseNoteSheet from '@/components/ExerciseNoteSheet.vue'
 import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
@@ -17,6 +18,8 @@ const detail = ref<WorkoutDetail | null>(null)
 const loading = ref(true)
 const switcherOpen = ref(false)
 const actionsSheetOpen = ref(false)
+const noteSheetOpen = ref(false)
+const activeNoteExercise = ref<ExerciseDetail | null>(null)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
 
 interface FirstSetWeightSnapshot {
@@ -171,6 +174,40 @@ async function addSet(exercise: ExerciseDetail) {
   })
   draft[draftKey(exercise.id, newSetNumber)] = { weight: '', reps: '' }
 }
+
+function openNoteSheet(exercise: ExerciseDetail) {
+  activeNoteExercise.value = exercise
+  noteSheetOpen.value = true
+}
+
+async function onSaveNote({ content, pinned }: { content: string; pinned: boolean }) {
+  const exercise = activeNoteExercise.value
+  if (!exercise || !detail.value) return
+
+  const { error } = await workouts.saveExerciseNote({
+    mesocycleWorkoutExerciseId: exercise.id,
+    mesocycleId: detail.value.mesocycleId,
+    exerciseId: exercise.exerciseId,
+    content,
+    pinned,
+  })
+  if (error) return
+
+  const note = content.trim() ? { content: content.trim(), pinned } : null
+
+  // A pinned note applies to every occurrence of this exercise in the workout;
+  // un-pinning clears it everywhere except the row that was actually edited.
+  for (const candidate of detail.value.exercises) {
+    if (candidate.exerciseId !== exercise.exerciseId) continue
+    if (candidate.id === exercise.id) {
+      candidate.note = note
+    } else if (pinned) {
+      candidate.note = note
+    } else if (candidate.note?.pinned) {
+      candidate.note = null
+    }
+  }
+}
 </script>
 
 <template>
@@ -215,6 +252,14 @@ async function addSet(exercise: ExerciseDetail) {
 
     <WorkoutSwitcherSheet v-model:open="switcherOpen" :current-workout-id="detail?.id ?? null" />
     <MesocycleActionsSheet v-model:open="actionsSheetOpen" />
+    <ExerciseNoteSheet
+      v-if="activeNoteExercise"
+      v-model:open="noteSheetOpen"
+      :exercise-name="activeNoteExercise.name"
+      :initial-content="activeNoteExercise.note?.content ?? ''"
+      :initial-pinned="activeNoteExercise.note?.pinned ?? false"
+      @save="onSaveNote"
+    />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>
@@ -228,6 +273,14 @@ async function addSet(exercise: ExerciseDetail) {
           class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-3"
         >
           <p class="text-base font-medium text-chalk">{{ exercise.name }}</p>
+
+          <button
+            type="button"
+            class="w-full truncate text-left text-sm text-mist hover:text-chalk"
+            @click="openNoteSheet(exercise)"
+          >
+            {{ exercise.note?.pinned ? '📌 ' : '' }}{{ exercise.note?.content || 'Add note' }}
+          </button>
 
           <div
             v-for="(set, setIndex) in exercise.sets"

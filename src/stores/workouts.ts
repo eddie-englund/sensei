@@ -12,6 +12,10 @@ interface SetRow {
   completed_at: string | null
 }
 
+interface WeekNoteRow {
+  content: string
+}
+
 interface ExerciseRow {
   id: string
   order_index: number
@@ -63,15 +67,23 @@ export interface SetViewModel {
   repsPlaceholder: number | null
 }
 
+export interface ExerciseNote {
+  content: string
+  pinned: boolean
+}
+
 export interface ExerciseDetail {
   id: string
+  exerciseId: string
   name: string
   targetSets: number
   sets: SetViewModel[]
+  note: ExerciseNote | null
 }
 
 export interface WorkoutDetail {
   id: string
+  mesocycleId: string
   dayNumber: number
   name: string
   weekNumber: number
@@ -375,9 +387,10 @@ export const useWorkoutsStore = defineStore('workouts', () => {
       .from('mesocycle_workout_exercises')
       .select(
         `
-        id, order_index, target_sets,
+        id, exercise_id, order_index, target_sets,
         exercises ( name ),
-        workout_sets ( set_number, weight, reps, completed_at )
+        workout_sets ( set_number, weight, reps, completed_at ),
+        exercise_week_notes ( content )
       `,
       )
       .eq('mesocycle_workout_id', workoutId)
@@ -386,7 +399,23 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     const exercises = (exerciseRows ?? []) as unknown as (Row & {
       exercises: Row
       workout_sets: SetRow[]
+      exercise_week_notes: WeekNoteRow | null
     })[]
+
+    const exerciseIds = [...new Set(exercises.map((exercise) => exercise.exercise_id as string))]
+
+    const { data: pinnedNoteRows } =
+      exerciseIds.length > 0
+        ? await supabase
+            .from('exercise_pinned_notes')
+            .select('exercise_id, content')
+            .eq('mesocycle_id', mesocycleId)
+            .in('exercise_id', exerciseIds)
+        : { data: [] }
+
+    const pinnedByExerciseId = new Map(
+      (pinnedNoteRows ?? []).map((row) => [row.exercise_id as string, row.content as string]),
+    )
 
     const refWeekId = await resolveReferenceWeekId(mesocycleId, weekNumber, clonedFromId)
 
@@ -449,16 +478,29 @@ export const useWorkoutsStore = defineStore('workouts', () => {
           }
         })
 
+      const exerciseId = exercise.exercise_id as string
+      const pinnedContent = pinnedByExerciseId.get(exerciseId)
+      const weekContent = exercise.exercise_week_notes?.content
+      const note: ExerciseNote | null =
+        pinnedContent !== undefined
+          ? { content: pinnedContent, pinned: true }
+          : weekContent !== undefined
+            ? { content: weekContent, pinned: false }
+            : null
+
       return {
         id: exercise.id as string,
+        exerciseId,
         name: exercise.exercises.name as string,
         targetSets,
         sets,
+        note,
       }
     })
 
     return {
       id: workoutRow.id,
+      mesocycleId,
       dayNumber: workoutRow.day_number,
       name: workoutRow.name,
       weekNumber,
@@ -544,6 +586,61 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     return { targetSets: error ? null : targetSets, error }
   }
 
+  interface ExerciseNoteInput {
+    mesocycleWorkoutExerciseId: string
+    mesocycleId: string
+    exerciseId: string
+    content: string
+  }
+
+  async function deleteExerciseNote(input: ExerciseNoteInput) {
+    const { error: weekError } = await supabase
+      .from('exercise_week_notes')
+      .delete()
+      .eq('mesocycle_workout_exercise_id', input.mesocycleWorkoutExerciseId)
+    if (weekError) return { error: weekError }
+
+    const { error: pinnedError } = await supabase
+      .from('exercise_pinned_notes')
+      .delete()
+      .eq('mesocycle_id', input.mesocycleId)
+      .eq('exercise_id', input.exerciseId)
+
+    return { error: pinnedError }
+  }
+
+  async function saveExerciseNote(input: ExerciseNoteInput & { pinned: boolean }) {
+    const content = input.content.trim()
+    if (!content) return deleteExerciseNote(input)
+
+    if (input.pinned) {
+      const { error } = await supabase.from('exercise_pinned_notes').upsert(
+        { mesocycle_id: input.mesocycleId, exercise_id: input.exerciseId, content },
+        { onConflict: 'mesocycle_id,exercise_id' },
+      )
+      if (error) return { error }
+
+      const { error: cleanupError } = await supabase
+        .from('exercise_week_notes')
+        .delete()
+        .eq('mesocycle_workout_exercise_id', input.mesocycleWorkoutExerciseId)
+      return { error: cleanupError }
+    }
+
+    const { error } = await supabase.from('exercise_week_notes').upsert(
+      { mesocycle_workout_exercise_id: input.mesocycleWorkoutExerciseId, content },
+      { onConflict: 'mesocycle_workout_exercise_id' },
+    )
+    if (error) return { error }
+
+    const { error: cleanupError } = await supabase
+      .from('exercise_pinned_notes')
+      .delete()
+      .eq('mesocycle_id', input.mesocycleId)
+      .eq('exercise_id', input.exerciseId)
+    return { error: cleanupError }
+  }
+
   return {
     activeMesocycle,
     structure,
@@ -555,6 +652,8 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     fetchWorkoutDetail,
     logSet,
     addSet,
+    saveExerciseNote,
+    deleteExerciseNote,
     updateMesocycleLength,
     endMesocycle,
   }

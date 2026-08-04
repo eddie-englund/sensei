@@ -10,6 +10,7 @@ function readSupabaseUrl(): string {
 
 const FAKE_USER_ID = '00000000-0000-0000-0000-000000000001'
 export const MESOCYCLE_ID = 'meso-1'
+export const EXERCISE_ID = 'exercise-bench'
 
 interface FixtureWorkout {
   id: string
@@ -98,9 +99,18 @@ export async function mockAuthedSession(page: Page) {
 }
 
 export const mesocyclePatches: Record<string, unknown>[] = []
+export const weekNotes: Record<string, string> = {}
+export const pinnedNotes: Record<string, string> = {}
+
+function parseInFilter(value: string | null): string[] {
+  if (!value?.startsWith('in.(')) return []
+  return value.slice(4, -1).split(',').filter(Boolean)
+}
 
 export async function mockWorkoutsApi(page: Page) {
   mesocyclePatches.length = 0
+  for (const key of Object.keys(weekNotes)) delete weekNotes[key]
+  for (const key of Object.keys(pinnedNotes)) delete pinnedNotes[key]
 
   await page.route('**/rest/v1/mesocycles*', (route) => {
     if (route.request().method() === 'PATCH') {
@@ -176,15 +186,19 @@ export async function mockWorkoutsApi(page: Page) {
     const workout = workoutId ? WORKOUTS[workoutId] : undefined
 
     if (select.includes('exercises')) {
+      const rowId = workout ? `${workout.id}-ex1` : null
       route.fulfill({
         json: workout
           ? [
               {
-                id: `${workout.id}-ex1`,
+                id: rowId,
+                exercise_id: EXERCISE_ID,
                 order_index: 0,
                 target_sets: 1,
                 exercises: { name: 'Bench Press' },
                 workout_sets: [loggedSet(workout.complete)],
+                exercise_week_notes:
+                  rowId && weekNotes[rowId] !== undefined ? { content: weekNotes[rowId] } : null,
               },
             ]
           : [],
@@ -195,5 +209,51 @@ export async function mockWorkoutsApi(page: Page) {
     route.fulfill({
       json: workout ? [{ order_index: 0, workout_sets: [loggedSet(workout.complete)] }] : [],
     })
+  })
+
+  await page.route('**/rest/v1/exercise_week_notes*', (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON() as { mesocycle_workout_exercise_id: string; content: string }
+      weekNotes[body.mesocycle_workout_exercise_id] = body.content
+      route.fulfill({ status: 201, json: [body] })
+      return
+    }
+
+    if (req.method() === 'DELETE') {
+      const rowId = stripFilterPrefix(url.searchParams.get('mesocycle_workout_exercise_id'))
+      if (rowId) delete weekNotes[rowId]
+      route.fulfill({ status: 204 })
+      return
+    }
+
+    route.fulfill({ json: [] })
+  })
+
+  await page.route('**/rest/v1/exercise_pinned_notes*', (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON() as { exercise_id: string; content: string }
+      pinnedNotes[body.exercise_id] = body.content
+      route.fulfill({ status: 201, json: [body] })
+      return
+    }
+
+    if (req.method() === 'DELETE') {
+      const exerciseId = stripFilterPrefix(url.searchParams.get('exercise_id'))
+      if (exerciseId) delete pinnedNotes[exerciseId]
+      route.fulfill({ status: 204 })
+      return
+    }
+
+    const ids = parseInFilter(url.searchParams.get('exercise_id'))
+    const rows = ids
+      .filter((id) => pinnedNotes[id] !== undefined)
+      .map((id) => ({ exercise_id: id, content: pinnedNotes[id] }))
+    route.fulfill({ json: rows })
   })
 }

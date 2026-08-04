@@ -15,6 +15,7 @@ afterEach(() => {
 function detailFor(complete: boolean): WorkoutDetail {
   return {
     id: 'workout-1',
+    mesocycleId: 'mesocycle-1',
     dayNumber: 1,
     name: 'Push',
     weekNumber: 1,
@@ -23,6 +24,7 @@ function detailFor(complete: boolean): WorkoutDetail {
     exercises: [
       {
         id: 'exercise-1',
+        exerciseId: 'ex-bench',
         name: 'Bench Press',
         targetSets: 2,
         sets: [1, 2].map((setNumber) => ({
@@ -33,6 +35,7 @@ function detailFor(complete: boolean): WorkoutDetail {
           weightPrefill: null,
           repsPlaceholder: null,
         })),
+        note: null,
       },
     ],
   }
@@ -43,6 +46,7 @@ async function mountPage(detail: WorkoutDetail) {
   const workouts = useWorkoutsStore(pinia)
   vi.spyOn(workouts, 'fetchWorkoutDetail').mockResolvedValue(detail)
   const addSetSpy = vi.spyOn(workouts, 'addSet').mockResolvedValue({ targetSets: 3, error: null })
+  const saveNoteSpy = vi.spyOn(workouts, 'saveExerciseNote').mockResolvedValue({ error: null })
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -54,7 +58,7 @@ async function mountPage(detail: WorkoutDetail) {
   const wrapper = mount(WorkoutDetailPage, { global: { plugins: [pinia, router] } })
   await flushPromises()
 
-  return { wrapper, workouts, addSetSpy }
+  return { wrapper, workouts, addSetSpy, saveNoteSpy }
 }
 
 describe('workout detail page — add set', () => {
@@ -75,6 +79,49 @@ describe('workout detail page — add set', () => {
     const { wrapper } = await mountPage(detailFor(true))
     const addButton = wrapper.findAll('button').find((b) => b.text() === '+ Add set')
     expect(addButton).toBeUndefined()
+  })
+})
+
+describe('workout detail page — exercise notes', () => {
+  it('shows "Add note" when there is no note, and opens the edit sheet', async () => {
+    const { wrapper } = await mountPage(detailFor(false))
+
+    const noteButton = wrapper.findAll('button').find((b) => b.text() === 'Add note')!
+    expect(noteButton).toBeTruthy()
+
+    await noteButton.trigger('click')
+    expect(body.text()).toContain('Bench Press')
+    expect(body.find('textarea').exists()).toBe(true)
+  })
+
+  it('shows existing note content, prefixed with a pin marker when pinned', async () => {
+    const detail = detailFor(false)
+    detail.exercises[0]!.note = { content: 'Keep elbows tucked', pinned: true }
+    const { wrapper } = await mountPage(detail)
+
+    const noteButton = wrapper.findAll('button').find((b) => b.text().includes('Keep elbows tucked'))!
+    expect(noteButton.text()).toContain('📌')
+  })
+
+  it('saves a note and updates it locally without a full reload', async () => {
+    const { wrapper, saveNoteSpy } = await mountPage(detailFor(false))
+
+    const noteButton = wrapper.findAll('button').find((b) => b.text() === 'Add note')!
+    await noteButton.trigger('click')
+
+    await body.find('textarea').setValue('Go slow on the eccentric')
+    const saveButton = body.findAll('button').find((b) => b.text() === 'Save')!
+    await saveButton.trigger('click')
+    await flushPromises()
+
+    expect(saveNoteSpy).toHaveBeenCalledWith({
+      mesocycleWorkoutExerciseId: 'exercise-1',
+      mesocycleId: 'mesocycle-1',
+      exerciseId: 'ex-bench',
+      content: 'Go slow on the eccentric',
+      pinned: false,
+    })
+    expect(wrapper.text()).toContain('Go slow on the eccentric')
   })
 })
 

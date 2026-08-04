@@ -2,7 +2,7 @@
 - [ ] Templates should also allow for pre-filled exercise choices
 - [x] End mesocycle button (no way to end meso pre-maturely)
 - [x] Zoom on input focus fix
-- [ ] Notes on exercies
+- [x] Notes on exercies
 - [ ] Skip set, Remove set, Myorep set, Myorep match set
 - [ ] Change exercise (allow user to switch only for that week or for that week and the rest of the mesocyle)
 - [ ] Exercise insights (see weights & reps for that exercise via current workout)
