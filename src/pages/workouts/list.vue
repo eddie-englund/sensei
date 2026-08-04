@@ -4,11 +4,13 @@ import { useRouter } from 'vue-router'
 import { useWorkoutsStore } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
 import MesocycleLengthSheet from '@/components/MesocycleLengthSheet.vue'
+import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
 
 const router = useRouter()
 const workouts = useWorkoutsStore()
 const loading = ref(true)
 const lengthSheetOpen = ref(false)
+const actionsSheetOpen = ref(false)
 
 const statusLabel: Record<string, string> = {
   complete: 'Done',
@@ -44,8 +46,8 @@ function goToWorkout(id: string) {
       <AppButton
         v-if="workouts.activeMesocycle"
         variant="icon"
-        aria-label="Edit mesocycle length"
-        @click="lengthSheetOpen = true"
+        aria-label="Mesocycle options"
+        @click="actionsSheetOpen = true"
       >
         <svg
           viewBox="0 0 24 24"
@@ -64,6 +66,11 @@ function goToWorkout(id: string) {
       </AppButton>
     </header>
 
+    <MesocycleActionsSheet
+      v-model:open="actionsSheetOpen"
+      show-edit-length
+      @edit-length="lengthSheetOpen = true"
+    />
     <MesocycleLengthSheet v-model:open="lengthSheetOpen" />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">

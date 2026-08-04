@@ -97,8 +97,17 @@ export async function mockAuthedSession(page: Page) {
   )
 }
 
+export const mesocyclePatches: Record<string, unknown>[] = []
+
 export async function mockWorkoutsApi(page: Page) {
+  mesocyclePatches.length = 0
+
   await page.route('**/rest/v1/mesocycles*', (route) => {
+    if (route.request().method() === 'PATCH') {
+      mesocyclePatches.push(route.request().postDataJSON())
+      route.fulfill({ status: 204 })
+      return
+    }
     route.fulfill({ json: { id: MESOCYCLE_ID, name: 'Test Meso', cloned_from_id: null } })
   })
 

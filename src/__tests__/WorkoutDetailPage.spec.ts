@@ -1,10 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mount, flushPromises, DOMWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkoutDetailPage from '../pages/workouts/[id].vue'
 import { useWorkoutsStore } from '../stores/workouts'
 import type { WorkoutDetail } from '../stores/workouts'
+
+const body = new DOMWrapper(document.body)
+
+afterEach(() => {
+  document.body.innerHTML = ''
+})
 
 function detailFor(complete: boolean): WorkoutDetail {
   return {
@@ -69,5 +75,16 @@ describe('workout detail page — add set', () => {
     const { wrapper } = await mountPage(detailFor(true))
     const addButton = wrapper.findAll('button').find((b) => b.text() === '+ Add set')
     expect(addButton).toBeUndefined()
+  })
+})
+
+describe('workout detail page — mesocycle options', () => {
+  it('opens the actions sheet with only "End mesocycle" (no edit-length option)', async () => {
+    const { wrapper } = await mountPage(detailFor(false))
+    await wrapper.find('[aria-label="Mesocycle options"]').trigger('click')
+
+    expect(body.text()).toContain('Mesocycle options')
+    expect(body.text()).toContain('End mesocycle')
+    expect(body.text()).not.toContain('Edit mesocycle length')
   })
 })

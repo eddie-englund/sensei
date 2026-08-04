@@ -6,6 +6,7 @@ import { useWorkoutsStore } from '@/stores/workouts'
 import type { ExerciseDetail, WorkoutDetail } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
 import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
+import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
 import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
@@ -15,6 +16,7 @@ const workouts = useWorkoutsStore()
 const detail = ref<WorkoutDetail | null>(null)
 const loading = ref(true)
 const switcherOpen = ref(false)
+const actionsSheetOpen = ref(false)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
 
 interface FirstSetWeightSnapshot {
@@ -194,9 +196,25 @@ async function addSet(exercise: ExerciseDetail) {
           <path d="M3 10h18M8 3v4M16 3v4" />
         </svg>
       </AppButton>
+      <AppButton variant="icon" aria-label="Mesocycle options" @click="actionsSheetOpen = true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-5 w-5"
+        >
+          <circle cx="12" cy="5" r="1.4" />
+          <circle cx="12" cy="12" r="1.4" />
+          <circle cx="12" cy="19" r="1.4" />
+        </svg>
+      </AppButton>
     </header>
 
     <WorkoutSwitcherSheet v-model:open="switcherOpen" :current-workout-id="detail?.id ?? null" />
+    <MesocycleActionsSheet v-model:open="actionsSheetOpen" />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>

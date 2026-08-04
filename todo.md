@@ -1,4 +1,7 @@
 - [ ] Admin UI to create template mesocycles
 - [ ] Templates should also allow for pre-filled exercise choices
-- [ ] End mesocycle button (no way to end meso pre-maturely)
-- [X] Zoom on input focus fix
+- [x] End mesocycle button (no way to end meso pre-maturely)
+- [x] Zoom on input focus fix
+- [ ] Notes on exercies
+- [ ] Skip set, Remove set, Myorep set, Myorep match set
+- [ ] Change exercise (allow user to switch only for that week or for that week and the rest of the mesocyle)

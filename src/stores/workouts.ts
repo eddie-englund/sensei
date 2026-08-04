@@ -499,6 +499,21 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     }
   }
 
+  async function endMesocycle() {
+    if (!activeMesocycle.value) return { error: new Error('No active mesocycle.') }
+
+    const { error } = await supabase
+      .from('mesocycles')
+      .update({ is_active: false })
+      .eq('id', activeMesocycle.value.id)
+
+    if (error) return { error }
+
+    activeMesocycle.value = null
+    structure.value = []
+    return { error: null }
+  }
+
   async function logSet(input: {
     mesocycleWorkoutExerciseId: string
     setNumber: number
@@ -541,5 +556,6 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     logSet,
     addSet,
     updateMesocycleLength,
+    endMesocycle,
   }
 })
