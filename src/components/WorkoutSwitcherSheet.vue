@@ -70,7 +70,11 @@ onKeyStroke('Escape', close)
       </div>
 
       <div class="flex flex-1 flex-col gap-4 overflow-y-auto">
-        <div v-for="week in workouts.weekSummaries" :key="week.weekNumber" class="flex flex-col gap-2">
+        <div
+          v-for="week in workouts.weekSummaries"
+          :key="week.weekNumber"
+          class="flex flex-col gap-2"
+        >
           <h2 class="text-sm font-semibold tracking-wide text-mist uppercase">
             Week {{ week.weekNumber }}{{ week.isDeload ? ' · Deload' : '' }}
           </h2>
@@ -83,7 +87,9 @@ onKeyStroke('Escape', close)
               class="min-w-12 rounded-lg px-3 py-2 text-sm transition-colors"
               :class="[
                 statusPillClass[workout.status],
-                workout.id === currentWorkoutId ? 'ring-2 ring-brass ring-offset-2 ring-offset-surface' : '',
+                workout.id === currentWorkoutId
+                  ? 'ring-2 ring-brass ring-offset-2 ring-offset-surface'
+                  : '',
               ]"
               @click="goToWorkout(workout.id)"
             >

@@ -21,6 +21,6 @@ test('calendar icon opens the workout switcher and jumps to another workout', as
   await page.getByRole('button', { name: 'Week 1 Day 1 — complete' }).click()
 
   await expect(page).toHaveURL(/\/workouts\/w1d1$/)
-  await expect(page.getByText('Jump to workout')).not.toBeVisible()
+  await expect(page.getByText('Jump to workout')).toBeHidden()
   await expect(page.getByRole('heading', { name: 'Push' })).toBeVisible()
 })

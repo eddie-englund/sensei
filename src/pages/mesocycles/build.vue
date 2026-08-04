@@ -35,8 +35,7 @@ const errorMessage = ref('')
 const showReplaceConfirm = ref(false)
 
 const hasIncompleteActiveMesocycle = computed(
-  () =>
-    workoutsStore.activeMesocycle !== null && !workoutsStore.currentWorkout.mesocycleComplete,
+  () => workoutsStore.activeMesocycle !== null && !workoutsStore.currentWorkout.mesocycleComplete,
 )
 
 function newExercise(): BuilderExercise {
@@ -236,7 +235,8 @@ async function persistMesocycle() {
       .select('id')
       .single()
 
-    if (mesocycleError || !mesocycle) throw mesocycleError ?? new Error('Could not create mesocycle.')
+    if (mesocycleError || !mesocycle)
+      throw mesocycleError ?? new Error('Could not create mesocycle.')
     mesocycleId = mesocycle.id
 
     const weekRows = Array.from({ length: weekCount.value }, (_, weekIndex) => ({
@@ -269,7 +269,8 @@ async function persistMesocycle() {
       .insert(workoutRows)
       .select('id,mesocycle_week_id,day_number')
 
-    if (workoutsError || !insertedWorkouts) throw workoutsError ?? new Error('Could not create workouts.')
+    if (workoutsError || !insertedWorkouts)
+      throw workoutsError ?? new Error('Could not create workouts.')
 
     const workoutIdByKey = new Map<string, string>(
       insertedWorkouts.map((workout) => [
@@ -370,7 +371,9 @@ async function persistMesocycle() {
               class="flex items-center gap-2"
             >
               <ExercisePicker v-model="exercise.exerciseId" class="flex-1" />
-              <AppButton variant="ghost" @click="removeExercise(workout, exercise.key)">✕</AppButton>
+              <AppButton variant="ghost" @click="removeExercise(workout, exercise.key)"
+                >✕</AppButton
+              >
             </div>
 
             <AppButton variant="secondary" @click="addExercise(workout)">Add exercise</AppButton>

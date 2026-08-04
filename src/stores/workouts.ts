@@ -92,6 +92,22 @@ export interface WorkoutDetail {
   exercises: ExerciseDetail[]
 }
 
+export interface ExerciseHistorySet {
+  setNumber: number
+  weight: number
+  reps: number
+}
+
+export interface ExerciseHistoryEntry {
+  mesocycleWorkoutExerciseId: string
+  mesocycleName: string
+  weekNumber: number
+  isDeload: boolean
+  workoutName: string
+  loggedAt: string
+  sets: ExerciseHistorySet[]
+}
+
 function isExerciseComplete(exercise: ExerciseRow): boolean {
   const loggedCount = exercise.workout_sets.filter((set) => set.completed_at !== null).length
   return loggedCount >= exercise.target_sets
@@ -517,6 +533,75 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     }
   }
 
+  async function fetchExerciseHistory(exerciseId: string): Promise<ExerciseHistoryEntry[]> {
+    const auth = useAuthStore()
+    if (!auth.user) return []
+
+    const { data } = await supabase
+      .from('mesocycle_workout_exercises')
+      .select(
+        `
+        id,
+        mesocycle_workouts!inner (
+          name,
+          mesocycle_weeks!inner (
+            week_number, is_deload,
+            mesocycles!inner ( name, created_by )
+          )
+        ),
+        workout_sets ( set_number, weight, reps, completed_at )
+      `,
+      )
+      .eq('exercise_id', exerciseId)
+      .eq('mesocycle_workouts.mesocycle_weeks.mesocycles.created_by', auth.user.id)
+
+    interface HistoryRow {
+      id: string
+      mesocycle_workouts: {
+        name: string
+        mesocycle_weeks: {
+          week_number: number
+          is_deload: boolean
+          mesocycles: { name: string }
+        }
+      }
+      workout_sets: SetRow[]
+    }
+
+    const rows = (data ?? []) as unknown as HistoryRow[]
+
+    const entries: ExerciseHistoryEntry[] = []
+    for (const row of rows) {
+      const loggedSets = row.workout_sets
+        .filter((set) => set.completed_at !== null)
+        .sort((a, b) => a.set_number - b.set_number)
+      if (loggedSets.length === 0) continue
+
+      const loggedAt = loggedSets.reduce(
+        (latest, set) => (set.completed_at! > latest ? set.completed_at! : latest),
+        loggedSets[0]!.completed_at!,
+      )
+
+      const week = row.mesocycle_workouts.mesocycle_weeks
+      entries.push({
+        mesocycleWorkoutExerciseId: row.id,
+        mesocycleName: week.mesocycles.name,
+        weekNumber: week.week_number,
+        isDeload: week.is_deload,
+        workoutName: row.mesocycle_workouts.name,
+        loggedAt,
+        sets: loggedSets.map((set) => ({
+          setNumber: set.set_number,
+          weight: set.weight as number,
+          reps: set.reps as number,
+        })),
+      })
+    }
+
+    entries.sort((a, b) => (a.loggedAt < b.loggedAt ? 1 : a.loggedAt > b.loggedAt ? -1 : 0))
+    return entries
+  }
+
   async function updateMesocycleLength(newWeekCount: number) {
     if (!activeMesocycle.value) return { error: new Error('No active mesocycle.') }
     if (newWeekCount < 1) return { error: null }
@@ -614,10 +699,12 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     if (!content) return deleteExerciseNote(input)
 
     if (input.pinned) {
-      const { error } = await supabase.from('exercise_pinned_notes').upsert(
-        { mesocycle_id: input.mesocycleId, exercise_id: input.exerciseId, content },
-        { onConflict: 'mesocycle_id,exercise_id' },
-      )
+      const { error } = await supabase
+        .from('exercise_pinned_notes')
+        .upsert(
+          { mesocycle_id: input.mesocycleId, exercise_id: input.exerciseId, content },
+          { onConflict: 'mesocycle_id,exercise_id' },
+        )
       if (error) return { error }
 
       const { error: cleanupError } = await supabase
@@ -627,10 +714,12 @@ export const useWorkoutsStore = defineStore('workouts', () => {
       return { error: cleanupError }
     }
 
-    const { error } = await supabase.from('exercise_week_notes').upsert(
-      { mesocycle_workout_exercise_id: input.mesocycleWorkoutExerciseId, content },
-      { onConflict: 'mesocycle_workout_exercise_id' },
-    )
+    const { error } = await supabase
+      .from('exercise_week_notes')
+      .upsert(
+        { mesocycle_workout_exercise_id: input.mesocycleWorkoutExerciseId, content },
+        { onConflict: 'mesocycle_workout_exercise_id' },
+      )
     if (error) return { error }
 
     const { error: cleanupError } = await supabase
@@ -650,6 +739,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     fetchActiveMesocycle,
     fetchActiveMesocycleStructure,
     fetchWorkoutDetail,
+    fetchExerciseHistory,
     logSet,
     addSet,
     saveExerciseNote,

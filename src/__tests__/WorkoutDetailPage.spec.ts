@@ -47,6 +47,7 @@ async function mountPage(detail: WorkoutDetail) {
   vi.spyOn(workouts, 'fetchWorkoutDetail').mockResolvedValue(detail)
   const addSetSpy = vi.spyOn(workouts, 'addSet').mockResolvedValue({ targetSets: 3, error: null })
   const saveNoteSpy = vi.spyOn(workouts, 'saveExerciseNote').mockResolvedValue({ error: null })
+  const historySpy = vi.spyOn(workouts, 'fetchExerciseHistory').mockResolvedValue([])
 
   const router = createRouter({
     history: createMemoryHistory(),
@@ -58,7 +59,7 @@ async function mountPage(detail: WorkoutDetail) {
   const wrapper = mount(WorkoutDetailPage, { global: { plugins: [pinia, router] } })
   await flushPromises()
 
-  return { wrapper, workouts, addSetSpy, saveNoteSpy }
+  return { wrapper, workouts, addSetSpy, saveNoteSpy, historySpy }
 }
 
 describe('workout detail page — add set', () => {
@@ -99,7 +100,9 @@ describe('workout detail page — exercise notes', () => {
     detail.exercises[0]!.note = { content: 'Keep elbows tucked', pinned: true }
     const { wrapper } = await mountPage(detail)
 
-    const noteButton = wrapper.findAll('button').find((b) => b.text().includes('Keep elbows tucked'))!
+    const noteButton = wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Keep elbows tucked'))!
     expect(noteButton.text()).toContain('📌')
   })
 
@@ -122,6 +125,19 @@ describe('workout detail page — exercise notes', () => {
       pinned: false,
     })
     expect(wrapper.text()).toContain('Go slow on the eccentric')
+  })
+})
+
+describe('workout detail page — exercise history', () => {
+  it('opens the history sheet and fetches history for the exercise', async () => {
+    const { wrapper, historySpy } = await mountPage(detailFor(false))
+
+    await wrapper.find('[aria-label="Exercise history"]').trigger('click')
+    await flushPromises()
+
+    expect(historySpy).toHaveBeenCalledWith('ex-bench')
+    expect(body.text()).toContain('Bench Press')
+    expect(body.text()).toContain('No sets logged yet for this exercise.')
   })
 })
 

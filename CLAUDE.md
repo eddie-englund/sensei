@@ -21,9 +21,7 @@ pnpm lint             # oxlint --fix, then eslint --fix
 pnpm format           # oxfmt src/
 ```
 
-Run the unit tests and the e2e tests after every change. Add new tests when you add a feature.
-
-Do not use semicolons. Use single quotes. The tool `oxfmt` enforces this. See `.oxfmtrc.json`.
+Run lint, format, unit tests and the e2e tests after every change. Add new tests when you add a feature and fix any linting errors or issues.
 
 ## Local development (Supabase)
 

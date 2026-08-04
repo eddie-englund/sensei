@@ -6,5 +6,13 @@
   },
   "categories": {
     "correctness": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/__tests__/**"],
+      "rules": {
+        "unicorn/no-thenable": "off"
+      }
+    }
+  ]
 }

@@ -12,7 +12,7 @@ test('adding a set lets you log an extra set on the current workout', async ({ p
   await expect(page.getByRole('heading', { name: 'Pull' })).toBeVisible()
 
   await expect(page.getByText('Set 1')).toBeVisible()
-  await expect(page.getByText('Set 2')).not.toBeVisible()
+  await expect(page.getByText('Set 2')).toBeHidden()
 
   await page.getByRole('button', { name: '+ Add set' }).click()
   await expect(page.getByText('Set 2')).toBeVisible()

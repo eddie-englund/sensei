@@ -8,6 +8,7 @@ import AppButton from '@/components/AppButton.vue'
 import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
 import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
 import ExerciseNoteSheet from '@/components/ExerciseNoteSheet.vue'
+import ExerciseHistorySheet from '@/components/ExerciseHistorySheet.vue'
 import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
@@ -20,6 +21,8 @@ const switcherOpen = ref(false)
 const actionsSheetOpen = ref(false)
 const noteSheetOpen = ref(false)
 const activeNoteExercise = ref<ExerciseDetail | null>(null)
+const historySheetOpen = ref(false)
+const activeHistoryExercise = ref<ExerciseDetail | null>(null)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
 
 interface FirstSetWeightSnapshot {
@@ -180,6 +183,11 @@ function openNoteSheet(exercise: ExerciseDetail) {
   noteSheetOpen.value = true
 }
 
+function openHistorySheet(exercise: ExerciseDetail) {
+  activeHistoryExercise.value = exercise
+  historySheetOpen.value = true
+}
+
 async function onSaveNote({ content, pinned }: { content: string; pinned: boolean }) {
   const exercise = activeNoteExercise.value
   if (!exercise || !detail.value) return
@@ -260,6 +268,12 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
       :initial-pinned="activeNoteExercise.note?.pinned ?? false"
       @save="onSaveNote"
     />
+    <ExerciseHistorySheet
+      v-if="activeHistoryExercise"
+      v-model:open="historySheetOpen"
+      :exercise-id="activeHistoryExercise.exerciseId"
+      :exercise-name="activeHistoryExercise.name"
+    />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>
@@ -272,7 +286,26 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
           :key="exercise.id"
           class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-3"
         >
-          <p class="text-base font-medium text-chalk">{{ exercise.name }}</p>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-base font-medium text-chalk">{{ exercise.name }}</p>
+            <AppButton
+              variant="icon"
+              aria-label="Exercise history"
+              @click="openHistorySheet(exercise)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-5 w-5"
+              >
+                <path d="M4 20V10M12 20V4M20 20v-7" />
+              </svg>
+            </AppButton>
+          </div>
 
           <button
             type="button"

@@ -77,7 +77,9 @@ async function mountBuild(scenario: Scenario) {
   auth.session = { user: { id: 'user-1' } }
 
   const exercises = useExercisesStore(pinia)
-  exercises.exercises = [{ id: 'e1', name: 'Bench Press', muscle_group: 'Chest', equipment: 'Barbell' }]
+  exercises.exercises = [
+    { id: 'e1', name: 'Bench Press', muscle_group: 'Chest', equipment: 'Barbell' },
+  ]
   exercises.loaded = true
 
   const workouts = useWorkoutsStore(pinia)
@@ -151,7 +153,10 @@ describe('mesocycles/build.vue replace safeguard', () => {
     const pushSpy = vi.spyOn(router, 'push')
 
     await fillValidForm(wrapper)
-    await wrapper.findAll('button').find((b) => b.text().includes('Save mesocycle'))!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Save mesocycle'))!
+      .trigger('click')
     await flushPromises()
 
     expect(body.find('[role="alertdialog"]').exists()).toBe(false)
@@ -163,7 +168,10 @@ describe('mesocycles/build.vue replace safeguard', () => {
     const pushSpy = vi.spyOn(router, 'push')
 
     await fillValidForm(wrapper)
-    await wrapper.findAll('button').find((b) => b.text().includes('Save mesocycle'))!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Save mesocycle'))!
+      .trigger('click')
     await flushPromises()
 
     expect(body.find('[role="alertdialog"]').exists()).toBe(false)
@@ -175,7 +183,10 @@ describe('mesocycles/build.vue replace safeguard', () => {
     const pushSpy = vi.spyOn(router, 'push')
 
     await fillValidForm(wrapper)
-    await wrapper.findAll('button').find((b) => b.text().includes('Save mesocycle'))!.trigger('click')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Save mesocycle'))!
+      .trigger('click')
     await flushPromises()
 
     expect(body.find('[role="alertdialog"]').exists()).toBe(true)

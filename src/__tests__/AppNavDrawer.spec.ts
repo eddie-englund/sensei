@@ -59,7 +59,10 @@ describe('AppNavDrawer', () => {
       props: { open: true },
       global: { plugins: [createPinia(), router] },
     })
-    await body.findAll('button').find((b) => b.text() === 'Plan mesocycle')!.trigger('click')
+    await body
+      .findAll('button')
+      .find((b) => b.text() === 'Plan mesocycle')!
+      .trigger('click')
     expect(pushSpy).toHaveBeenCalledWith({ name: '/mesocycles/plan' })
     expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
@@ -71,7 +74,10 @@ describe('AppNavDrawer', () => {
       props: { open: true },
       global: { plugins: [createPinia(), router] },
     })
-    await body.findAll('button').find((b) => b.text() === 'View workouts')!.trigger('click')
+    await body
+      .findAll('button')
+      .find((b) => b.text() === 'View workouts')!
+      .trigger('click')
     expect(pushSpy).toHaveBeenCalledWith({ name: '/workouts/list' })
     expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
@@ -85,7 +91,10 @@ describe('AppNavDrawer', () => {
     const auth = useAuthStore(pinia)
     const signOutSpy = vi.spyOn(auth, 'signOut').mockResolvedValue()
 
-    await body.findAll('button').find((b) => b.text() === 'Sign out')!.trigger('click')
+    await body
+      .findAll('button')
+      .find((b) => b.text() === 'Sign out')!
+      .trigger('click')
     expect(signOutSpy).toHaveBeenCalled()
     expect(wrapper.emitted('update:open')?.slice(-1)[0]).toEqual([false])
   })
