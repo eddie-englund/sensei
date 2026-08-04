@@ -2,11 +2,11 @@
 
 ## What this is
 
-Sensei: a Vue 3 + Supabase app intended for mobile devices tracking mesocycle-based workout programs (weeks → workouts → exercises → logged sets). Frontend-only repo; Supabase is the backend (Postgres + Auth), schema tracked as raw SQL in `db/migrations/`.
+Sensei is a Vue 3 and Supabase app. It runs on mobile devices. It tracks workout programs. Each program has weeks, workouts, exercises, and logged sets. This repo has only the frontend code. Supabase is the backend. Supabase gives Postgres and Auth. The schema is raw SQL in `supabase/migrations/`.
 
 ## Styling
 
-ALL STYLING Is DONE WITH TAILWINDCSS
+Use Tailwind CSS for all styling.
 
 ## Commands
 
@@ -21,29 +21,39 @@ pnpm lint             # oxlint --fix, then eslint --fix
 pnpm format           # oxfmt src/
 ```
 
-run unit tests and e2e tests after every change and add more when you create new features/functionality.
-No semicolons, single quotes (enforced by oxfmt, see `.oxfmtrc.json`).
+Run the unit tests and the e2e tests after every change. Add new tests when you add a feature.
+
+Do not use semicolons. Use single quotes. The tool `oxfmt` enforces this. See `.oxfmtrc.json`.
+
+## Local development (Supabase)
+
+```sh
+pnpm supabase:start   # start the local stack
+pnpm supabase:env     # point .env.local at the local stack
+pnpm supabase:reset   # re-apply migrations and seed data
+pnpm supabase:stop    # stop the local stack
+```
+
+See the `supabase-local-dev` skill for setup steps and for fixes to known problems.
 
 ## Architecture
 
-- **Routing is file-based**: `src/pages/**/*.vue` auto-generates routes via `vue-router/auto-routes` (unplugin-vue-router, configured in `vite.config.ts`). Don't hand-write route tables — add a file under `src/pages/` and the route appears. Route names match file paths (e.g. `/login`, `/auth/callback`).
-- **Auth guard lives in `src/router/index.ts`**: a global `beforeEach` redirects unauthenticated visitors to `/login` and authenticated ones away from `/login`. `login` and `auth/callback` are the only public route names — new public pages must be added to the `isPublic` check there.
-- **Auth state is the Pinia `auth` store** (`src/stores/auth.ts`), backed by Supabase's session/JWT, not custom session handling. It's initialized once in `main.ts` before the router/app mount (`await authStore.init()`), so `auth.isAuthenticated` is reliable by the time routing runs. Magic-link (OTP) sign-in only — no password flow.
-- **Supabase client** is a single instance at `src/utils/supabase.ts`, reading `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` from env. Import this rather than constructing new clients.
-- **Path alias `@` → `src/`** (set in `vite.config.ts`, mirrored in tsconfig).
+- **Routing is file-based.** Each file under `src/pages/**/*.vue` becomes a route (via `vue-router/auto-routes`, configured in `vite.config.ts`). Do not write route tables by hand. Add a file to add a route. The route name matches the file path. Example: `login.vue` becomes `/login`.
+- **The auth guard is in `src/router/index.ts`.** It runs before each route change. It sends signed-out users to `/login`. It sends signed-in users away from `/login`. The only public route names are `login` and `auth/callback`. Add new public pages to the `isPublic` check there.
+- **Auth state is the Pinia `auth` store**, at `src/stores/auth.ts`. It wraps the Supabase session and JWT. It does not use custom session handling. `main.ts` calls `authStore.init()` once, before the router and app mount. After that call, `auth.isAuthenticated` is safe to read. Sign-in uses a magic link (OTP) only. There is no password flow.
+- **Use the one Supabase client** at `src/utils/supabase.ts`. It reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the environment. Do not create new clients.
+- **The path alias `@` points to `src/`.** It is set in `vite.config.ts` and mirrored in `tsconfig`.
 
 ## Skills
 
-- Supabase and Supabase-Postgres-best-practices skills are installed (`.agents/skills/`) and auto-trigger on any Supabase or schema/RLS/migration work — no need to re-derive that guidance here.
-  - Only invoke this when touching supabase related tasks
-
-- frontend design skill.
-  - Invoke when changing or adjusting anything that would be visible to the user.
+- `supabase` and `supabase-postgres-best-practices`: use for any Supabase task — schema, RLS, or migrations.
+- `frontend-design`: use when you change anything the user can see.
+- `supabase-local-dev`: use to start, stop, reset, or debug the local Supabase stack.
 
 ## Reusability first
 
-Whenever you need a button or other component verify if there is an existing one that suits your needs. If it doesn't suit your needs check if it's simple to just adjust the existing one without breaking it but still covering your use case.
+Look for an existing button or component first. Reuse it if it fits. Adjust it if a small change makes it fit and does not break its other uses. Build a new one only if reuse and adjustment do not work.
 
 ## Utilities
 
-`@vueuse/core` is a dependency. Prefer its composables over hand-rolled browser/timing glue — debouncing (`refDebounced`, `useDebounceFn`), `localStorage` (`useStorage`), event listeners (`useEventListener`), media queries, clipboard, etc. Only write custom logic when no vueuse composable fits.
+`@vueuse/core` is a dependency. Use its composables for browser and timing needs: debouncing (`refDebounced`, `useDebounceFn`), `localStorage` (`useStorage`), event listeners (`useEventListener`), media queries, clipboard, and more. Write custom logic only when no vueuse composable fits.
