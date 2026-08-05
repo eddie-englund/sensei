@@ -11,6 +11,7 @@ import ExercisePicker from '@/components/ExercisePicker.vue'
 interface BuilderExercise {
   key: string
   exerciseId: string | null
+  targetSets: number
 }
 
 interface BuilderWorkout {
@@ -39,7 +40,7 @@ const hasIncompleteActiveMesocycle = computed(
 )
 
 function newExercise(): BuilderExercise {
-  return { key: crypto.randomUUID(), exerciseId: null }
+  return { key: crypto.randomUUID(), exerciseId: null, targetSets: 2 }
 }
 
 function newWorkout(): BuilderWorkout {
@@ -105,6 +106,7 @@ async function loadStructure(options: {
       .map((exercise: SourceRow) => ({
         key: crypto.randomUUID(),
         exerciseId: exercise.exercise_id as string,
+        targetSets: Number(exercise.target_sets ?? 2),
       })),
   }))
 
@@ -203,6 +205,13 @@ async function save() {
     errorMessage.value = 'Pick an exercise for every exercise row before saving.'
     return
   }
+  const hasInvalidTargetSets = workouts.value.some((workout) =>
+    workout.exercises.some((exercise) => exercise.targetSets < 1),
+  )
+  if (hasInvalidTargetSets) {
+    errorMessage.value = 'Target sets must be at least 1 for every exercise.'
+    return
+  }
 
   if (hasIncompleteActiveMesocycle.value) {
     showReplaceConfirm.value = true
@@ -287,6 +296,7 @@ async function persistMesocycle() {
           mesocycle_workout_id: workoutId,
           exercise_id: exercise.exerciseId,
           order_index: exerciseIndex,
+          target_sets: exercise.targetSets,
         }))
       })
     }).flat()
@@ -371,6 +381,13 @@ async function persistMesocycle() {
               class="flex items-center gap-2"
             >
               <ExercisePicker v-model="exercise.exerciseId" class="flex-1" />
+              <input
+                v-model.number="exercise.targetSets"
+                type="number"
+                min="1"
+                aria-label="Target sets"
+                class="w-16 rounded-lg border border-line bg-surface-raised px-2 py-2 text-center text-base text-chalk outline-none focus-visible:border-brass"
+              />
               <AppButton variant="ghost" @click="removeExercise(workout, exercise.key)"
                 >✕</AppButton
               >

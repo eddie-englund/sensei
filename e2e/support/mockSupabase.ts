@@ -116,6 +116,10 @@ export async function mockWorkoutsApi(page: Page) {
   for (const key of Object.keys(weekNotes)) delete weekNotes[key]
   for (const key of Object.keys(pinnedNotes)) delete pinnedNotes[key]
 
+  await page.route('**/rest/v1/profiles*', (route) => {
+    route.fulfill({ json: { is_admin: false } })
+  })
+
   await page.route('**/rest/v1/mesocycles*', (route) => {
     if (route.request().method() === 'PATCH') {
       mesocyclePatches.push(route.request().postDataJSON())
@@ -306,6 +310,10 @@ export async function mockExerciseSwapApi(page: Page) {
   for (const workout of Object.values(SWAP_WORKOUTS)) {
     swapRowExerciseId[swapRowId(workout.id)] = BENCH_EXERCISE_ID
   }
+
+  await page.route('**/rest/v1/profiles*', (route) => {
+    route.fulfill({ json: { is_admin: false } })
+  })
 
   await page.route('**/rest/v1/exercises*', (route) => {
     route.fulfill({

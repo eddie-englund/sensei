@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/utils/supabase'
 import { useMesocyclesStore } from '@/stores/mesocycles'
+import { useAuthStore } from '@/stores/auth'
 
 interface Template {
   id: string
@@ -12,6 +13,7 @@ interface Template {
 
 const router = useRouter()
 const mesocycles = useMesocyclesStore()
+const auth = useAuthStore()
 const templates = ref<Template[]>([])
 
 onMounted(async () => {
@@ -74,6 +76,18 @@ function startFromClone(mesocycleId: string) {
           </button>
           <p v-if="templates.length === 0" class="text-sm text-mist">No templates available yet.</p>
         </div>
+      </section>
+
+      <section v-if="auth.isAdmin" class="flex flex-col gap-3">
+        <h2 class="text-sm font-semibold tracking-wide text-mist uppercase">Coach tools</h2>
+        <button
+          type="button"
+          class="rounded-xl border border-dashed border-line px-4 py-5 text-left text-sm transition-colors hover:border-brass/60"
+          @click="router.push({ name: '/mesocycles/templates/build' })"
+        >
+          <p class="font-medium text-chalk">Create template</p>
+          <p class="text-mist">Author a reusable mesocycle template for everyone to start from.</p>
+        </button>
       </section>
 
       <section v-if="mesocycles.mesocycles.length > 0" class="flex flex-col gap-3">

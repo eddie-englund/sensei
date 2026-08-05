@@ -8,9 +8,23 @@ import { useWorkoutsStore } from '../stores/workouts'
 import { useExercisesStore } from '../stores/exercises'
 import { useAuthStore } from '../stores/auth'
 
+const { readResponses, lastInsert, resetMock } = vi.hoisted(() => {
+  const readResponses: Record<string, Record<string, unknown>[]> = {}
+  const lastInsert: Record<string, Record<string, unknown>[]> = {}
+  return {
+    readResponses,
+    lastInsert,
+    resetMock: () => {
+      for (const key of Object.keys(readResponses)) delete readResponses[key]
+      for (const key of Object.keys(lastInsert)) delete lastInsert[key]
+    },
+  }
+})
+
 vi.mock('@/utils/supabase', () => {
   function createChain(table: string) {
     let insertedRows: Record<string, unknown>[] = []
+    let didInsert = false
     let hasSingle = false
     const chain: Record<string, unknown> = {
       select: () => chain,
@@ -29,29 +43,48 @@ vi.mock('@/utils/supabase', () => {
       },
       insert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         insertedRows = Array.isArray(rows) ? rows : [rows]
+        didInsert = true
+        lastInsert[table] = insertedRows
         return chain
       },
       then: (resolve: (value: { data: unknown; error: null }) => void) => {
-        if (hasSingle) {
-          resolve({ data: { id: `${table}-id`, ...insertedRows[0] }, error: null })
+        if (didInsert) {
+          if (hasSingle) {
+            resolve({ data: { id: `${table}-id`, ...insertedRows[0] }, error: null })
+            return
+          }
+          resolve({
+            data: insertedRows.map((row, i) => ({ id: `${table}-${i}`, ...row })),
+            error: null,
+          })
           return
         }
-        resolve({
-          data: insertedRows.map((row, i) => ({ id: `${table}-${i}`, ...row })),
-          error: null,
-        })
+
+        const rows = readResponses[table] ?? []
+        if (hasSingle) {
+          resolve({ data: rows[0] ?? null, error: null })
+          return
+        }
+        resolve({ data: rows, error: null })
       },
     }
     return chain
   }
 
-  return { supabase: { from: (table: string) => createChain(table) } }
+  return {
+    supabase: { from: (table: string) => createChain(table) },
+  }
 })
+
+function setReadResponse(table: string, rows: Record<string, unknown>[]) {
+  readResponses[table] = rows
+}
 
 const body = new DOMWrapper(document.body)
 
 afterEach(() => {
   document.body.innerHTML = ''
+  resetMock()
 })
 
 function createTestRouter() {
@@ -66,10 +99,10 @@ function createTestRouter() {
 
 type Scenario = 'none' | 'incomplete' | 'complete'
 
-async function mountBuild(scenario: Scenario) {
+async function mountBuild(scenario: Scenario, query?: Record<string, string>) {
   const pinia = createPinia()
   const router = createTestRouter()
-  await router.push({ name: '/mesocycles/build' })
+  await router.push({ name: '/mesocycles/build', query })
   await router.isReady()
 
   const auth = useAuthStore(pinia)
@@ -197,5 +230,58 @@ describe('mesocycles/build.vue replace safeguard', () => {
     await flushPromises()
 
     expect(pushSpy).toHaveBeenCalledWith({ name: '/' })
+  })
+})
+
+describe('mesocycles/build.vue target_sets carry-through', () => {
+  it('defaults a brand-new exercise row to 2 target sets and persists it', async () => {
+    const { wrapper } = await mountBuild('none')
+
+    await fillValidForm(wrapper)
+    const targetSetsInput = wrapper.find('input[aria-label="Target sets"]')
+    expect((targetSetsInput.element as HTMLInputElement).value).toBe('2')
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Save mesocycle'))!
+      .trigger('click')
+    await flushPromises()
+
+    const exerciseRows = lastInsert['mesocycle_workout_exercises']!
+    expect(exerciseRows[0]!.target_sets).toBe(2)
+  })
+
+  it('loads target_sets from a template into the draft and persists the edited value', async () => {
+    setReadResponse('mesocycle_templates', [{ id: 'template-1', name: 'My template' }])
+    setReadResponse('mesocycle_template_weeks', [
+      { id: 'week-1', week_number: 1, mesocycle_template_id: 'template-1' },
+    ])
+    setReadResponse('mesocycle_template_workouts', [
+      { id: 'workout-1', mesocycle_template_week_id: 'week-1', day_number: 1, name: 'Day 1' },
+    ])
+    setReadResponse('mesocycle_template_workout_exercises', [
+      {
+        id: 'ex-1',
+        mesocycle_template_workout_id: 'workout-1',
+        exercise_id: 'e1',
+        order_index: 0,
+        target_sets: 3,
+      },
+    ])
+
+    const { wrapper } = await mountBuild('none', { template: 'template-1' })
+
+    const targetSetsInput = wrapper.find('input[aria-label="Target sets"]')
+    expect((targetSetsInput.element as HTMLInputElement).value).toBe('3')
+
+    await targetSetsInput.setValue('5')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text().includes('Save mesocycle'))!
+      .trigger('click')
+    await flushPromises()
+
+    const exerciseRows = lastInsert['mesocycle_workout_exercises']!
+    expect(exerciseRows[0]!.target_sets).toBe(5)
   })
 })

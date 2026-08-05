@@ -66,6 +66,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/mesocycles/templates/build': RouteRecordInfo<
+      '/mesocycles/templates/build',
+      '/mesocycles/templates/build',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/workouts/[id]': RouteRecordInfo<
       '/workouts/[id]',
       '/workouts/:id',
@@ -128,6 +135,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/mesocycles/plan.vue': {
       routes:
         | '/mesocycles/plan'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/mesocycles/templates/build.vue': {
+      routes:
+        | '/mesocycles/templates/build'
       views:
         | never
       pathParamNames:

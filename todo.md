@@ -1,5 +1,5 @@
-- [ ] Admin UI to create template mesocycles
-- [ ] Templates should also allow for pre-filled exercise choices
+- [x] Admin UI to create template mesocycles
+- [x] Templates should also allow for pre-filled exercise choices
 - [x] End mesocycle button (no way to end meso pre-maturely)
 - [x] Zoom on input focus fix
 - [x] Notes on exercies
