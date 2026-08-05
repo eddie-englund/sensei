@@ -156,7 +156,13 @@ async function mountBuild(scenario: Scenario, query?: Record<string, string>) {
                 order_index: 0,
                 target_sets: 1,
                 workout_sets: [
-                  { set_number: 1, weight: 100, reps: 5, completed_at: '2026-01-01T00:00:00Z' },
+                  {
+                    set_number: 1,
+                    weight: 100,
+                    reps: 5,
+                    completed_at: '2026-01-01T00:00:00Z',
+                    skipped_at: null,
+                  },
                 ],
               },
             ],

@@ -20,9 +20,9 @@ test('adding a set lets you log an extra set on the current workout', async ({ p
   const setTwoRow = page.getByText('Set 2').locator('..')
   await setTwoRow.getByPlaceholder('Weight').fill('135')
   await setTwoRow.getByPlaceholder('Reps').fill('8')
-  await setTwoRow.getByRole('button', { name: 'Log' }).click()
+  await setTwoRow.getByRole('button', { name: 'Log set' }).click()
 
-  await expect(setTwoRow.getByRole('button', { name: 'Update' })).toBeVisible()
+  await expect(setTwoRow.getByRole('button', { name: 'Unlog set' })).toBeVisible()
 })
 
 test('logging a set accepts a comma as the decimal separator (mobile locale keyboards)', async ({
@@ -40,7 +40,7 @@ test('logging a set accepts a comma as the decimal separator (mobile locale keyb
   const setOneRow = page.getByText('Set 1').locator('..')
   await setOneRow.getByPlaceholder('Weight').fill('62,5')
   await setOneRow.getByPlaceholder('Reps').fill('5')
-  await setOneRow.getByRole('button', { name: 'Log' }).click()
+  await setOneRow.getByRole('button', { name: 'Log set' }).click()
 
   // This fixture's only exercise has a single target set, so logging it
   // completes the whole workout and swaps the row to its read-only display.

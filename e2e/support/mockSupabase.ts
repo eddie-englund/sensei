@@ -47,12 +47,13 @@ function stripComparatorPrefix(value: string | null): string | null {
   return value?.replace(/^(eq|gte|lte|gt|lt)\./, '') ?? null
 }
 
-function loggedSet(complete: boolean) {
+function loggedSet() {
   return {
     set_number: 1,
-    weight: complete ? 100 : null,
-    reps: complete ? 5 : null,
-    completed_at: complete ? '2026-01-01T00:00:00Z' : null,
+    weight: 100,
+    reps: 5,
+    completed_at: '2026-01-01T00:00:00Z',
+    skipped_at: null,
   }
 }
 
@@ -66,7 +67,7 @@ function structureWorkoutRow(workout: FixtureWorkout) {
         id: `${workout.id}-ex1`,
         order_index: 0,
         target_sets: 1,
-        workout_sets: [loggedSet(workout.complete)],
+        workout_sets: workout.complete ? [loggedSet()] : [],
       },
     ],
   }
@@ -105,6 +106,7 @@ export async function mockAuthedSession(page: Page) {
 export const mesocyclePatches: Record<string, unknown>[] = []
 export const weekNotes: Record<string, string> = {}
 export const pinnedNotes: Record<string, string> = {}
+export const setMarkers: Record<string, string> = {}
 
 function parseInFilter(value: string | null): string[] {
   if (!value?.startsWith('in.(')) return []
@@ -115,6 +117,7 @@ export async function mockWorkoutsApi(page: Page) {
   mesocyclePatches.length = 0
   for (const key of Object.keys(weekNotes)) delete weekNotes[key]
   for (const key of Object.keys(pinnedNotes)) delete pinnedNotes[key]
+  for (const key of Object.keys(setMarkers)) delete setMarkers[key]
 
   await page.route('**/rest/v1/profiles*', (route) => {
     route.fulfill({ json: { is_admin: false } })
@@ -204,7 +207,7 @@ export async function mockWorkoutsApi(page: Page) {
                 order_index: 0,
                 target_sets: 1,
                 exercises: { name: 'Bench Press' },
-                workout_sets: [loggedSet(workout.complete)],
+                workout_sets: workout.complete ? [loggedSet()] : [],
                 exercise_week_notes:
                   rowId && weekNotes[rowId] !== undefined ? { content: weekNotes[rowId] } : null,
               },
@@ -215,7 +218,9 @@ export async function mockWorkoutsApi(page: Page) {
     }
 
     route.fulfill({
-      json: workout ? [{ order_index: 0, workout_sets: [loggedSet(workout.complete)] }] : [],
+      json: workout
+        ? [{ order_index: 0, workout_sets: workout.complete ? [loggedSet()] : [] }]
+        : [],
     })
   })
 
@@ -262,6 +267,42 @@ export async function mockWorkoutsApi(page: Page) {
     const rows = ids
       .filter((id) => pinnedNotes[id] !== undefined)
       .map((id) => ({ exercise_id: id, content: pinnedNotes[id] }))
+    route.fulfill({ json: rows })
+  })
+
+  await page.route('**/rest/v1/exercise_set_markers*', (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON() as {
+        exercise_id: string
+        set_number: number
+        marker_type: string
+      }
+      setMarkers[`${body.exercise_id}:${body.set_number}`] = body.marker_type
+      route.fulfill({ status: 201, json: [body] })
+      return
+    }
+
+    if (req.method() === 'DELETE') {
+      const exerciseId = stripFilterPrefix(url.searchParams.get('exercise_id'))
+      const setNumber = stripFilterPrefix(url.searchParams.get('set_number'))
+      if (exerciseId && setNumber) delete setMarkers[`${exerciseId}:${setNumber}`]
+      route.fulfill({ status: 204 })
+      return
+    }
+
+    const ids = parseInFilter(url.searchParams.get('exercise_id'))
+    const rows = ids.flatMap((id) =>
+      Object.entries(setMarkers)
+        .filter(([key]) => key.startsWith(`${id}:`))
+        .map(([key, markerType]) => ({
+          exercise_id: id,
+          set_number: Number(key.split(':')[1]),
+          marker_type: markerType,
+        })),
+    )
     route.fulfill({ json: rows })
   })
 }

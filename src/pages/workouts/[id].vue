@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import { useWorkoutsStore } from '@/stores/workouts'
-import type { ExerciseDetail, WorkoutDetail } from '@/stores/workouts'
+import type { ExerciseDetail, SetMarker, SetViewModel, WorkoutDetail } from '@/stores/workouts'
 import AppButton from '@/components/AppButton.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import WorkoutSwitcherSheet from '@/components/WorkoutSwitcherSheet.vue'
 import MesocycleActionsSheet from '@/components/MesocycleActionsSheet.vue'
 import ExerciseNoteSheet from '@/components/ExerciseNoteSheet.vue'
 import ExerciseHistorySheet from '@/components/ExerciseHistorySheet.vue'
 import ExerciseActionsSheet from '@/components/ExerciseActionsSheet.vue'
 import ExerciseSwapSheet from '@/components/ExerciseSwapSheet.vue'
+import SetActionsSheet from '@/components/SetActionsSheet.vue'
 import { parseDecimalInput } from '@/utils/number'
 
 const route = useRoute('/workouts/[id]')
@@ -29,6 +31,22 @@ const exerciseActionsOpen = ref(false)
 const swapSheetOpen = ref(false)
 const actionsSheetExercise = ref<ExerciseDetail | null>(null)
 const draft = reactive<Record<string, { weight: string; reps: string }>>({})
+
+const setActionsOpen = ref(false)
+const setActionsTarget = ref<{ exercise: ExerciseDetail; setNumber: number } | null>(null)
+const setActionsCurrentSet = computed(
+  () =>
+    setActionsTarget.value?.exercise.sets.find(
+      (s) => s.setNumber === setActionsTarget.value!.setNumber,
+    ) ?? null,
+)
+
+const editConfirmOpen = ref(false)
+const editConfirmTarget = ref<{
+  exercise: ExerciseDetail
+  set: SetViewModel
+  field: HTMLInputElement
+} | null>(null)
 
 interface FirstSetWeightSnapshot {
   exerciseId: string
@@ -53,7 +71,7 @@ function seedDraft(loadedDetail: WorkoutDetail) {
     for (const set of exercise.sets) {
       draft[draftKey(exercise.id, set.setNumber)] = {
         weight: (set.weight ?? set.weightPrefill ?? '').toString(),
-        reps: (set.reps ?? '').toString(),
+        reps: (set.reps ?? set.repsPrefill ?? '').toString(),
       }
     }
   }
@@ -131,7 +149,10 @@ function canLog(exerciseId: string, setNumber: number) {
 }
 
 function isExerciseFullyLogged(exercise: ExerciseDetail) {
-  return exercise.sets.filter((set) => set.completedAt !== null).length >= exercise.targetSets
+  return (
+    exercise.sets.filter((set) => set.completedAt !== null || set.skippedAt !== null).length >=
+    exercise.targetSets
+  )
 }
 
 async function logSet(exerciseId: string, setNumber: number) {
@@ -177,10 +198,103 @@ async function addSet(exercise: ExerciseDetail) {
     weight: null,
     reps: null,
     completedAt: null,
+    skippedAt: null,
     weightPrefill: null,
     repsPlaceholder: null,
+    repsPrefill: null,
+    marker: null,
   })
   draft[draftKey(exercise.id, newSetNumber)] = { weight: '', reps: '' }
+}
+
+async function onUnlog(exercise: ExerciseDetail, set: SetViewModel) {
+  const { error } = await workouts.unlogSet(exercise.id, set.setNumber)
+  if (error || !detail.value) return
+
+  set.completedAt = null
+  detail.value.complete = detail.value.exercises.every(isExerciseFullyLogged)
+}
+
+function onLockedFocus(event: FocusEvent, exercise: ExerciseDetail, set: SetViewModel) {
+  if (set.completedAt === null) return
+
+  const field = event.target as HTMLInputElement
+  field.blur()
+  editConfirmTarget.value = { exercise, set, field }
+  editConfirmOpen.value = true
+}
+
+async function confirmEditLoggedSet() {
+  const target = editConfirmTarget.value
+  editConfirmOpen.value = false
+  if (!target) return
+
+  await onUnlog(target.exercise, target.set)
+  await nextTick()
+  target.field.focus()
+}
+
+function openSetActions(exercise: ExerciseDetail, setNumber: number) {
+  setActionsTarget.value = { exercise, setNumber }
+  setActionsOpen.value = true
+}
+
+async function onSkipSet() {
+  const target = setActionsTarget.value
+  const set = setActionsCurrentSet.value
+  if (!target || !set || !detail.value) return
+
+  const { error } = await workouts.skipSet(target.exercise.id, set.setNumber)
+  if (error) return
+
+  set.skippedAt = new Date().toISOString()
+  set.weight = null
+  set.reps = null
+  detail.value.complete = detail.value.exercises.every(isExerciseFullyLogged)
+  if (detail.value.complete) await refreshCompletionState(detail.value.id)
+}
+
+async function onUnskipSet() {
+  const target = setActionsTarget.value
+  const set = setActionsCurrentSet.value
+  if (!target || !set || !detail.value) return
+
+  const { error } = await workouts.unskipSet(target.exercise.id, set.setNumber)
+  if (error) return
+
+  set.skippedAt = null
+  detail.value.complete = detail.value.exercises.every(isExerciseFullyLogged)
+}
+
+async function onRemoveSet() {
+  const target = setActionsTarget.value
+  if (!target || !detail.value) return
+
+  const { exercise, setNumber } = target
+  const { targetSets, error } = await workouts.removeSet(exercise.id, exercise.targetSets)
+  if (error || targetSets === null) return
+
+  exercise.targetSets = targetSets
+  exercise.sets = exercise.sets.filter((s) => s.setNumber !== setNumber)
+  delete draft[draftKey(exercise.id, setNumber)]
+  detail.value.complete = detail.value.exercises.every(isExerciseFullyLogged)
+}
+
+async function onSetMarker(marker: SetMarker | null) {
+  const target = setActionsTarget.value
+  const set = setActionsCurrentSet.value
+  if (!target || !set || !detail.value) return
+
+  const nextMarker = set.marker === marker ? null : marker
+  const { error } = await workouts.setSetMarker({
+    mesocycleId: detail.value.mesocycleId,
+    exerciseId: target.exercise.exerciseId,
+    setNumber: set.setNumber,
+    marker: nextMarker,
+  })
+  if (error) return
+
+  set.marker = nextMarker
 }
 
 function openNoteSheet(exercise: ExerciseDetail) {
@@ -324,6 +438,30 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
       :has-logged-sets="actionsSheetExercise.sets.some((set) => set.completedAt !== null)"
       @swap="onSwap"
     />
+    <SetActionsSheet
+      v-if="setActionsTarget && setActionsCurrentSet"
+      v-model:open="setActionsOpen"
+      :set-number="setActionsTarget.setNumber"
+      :is-skipped="setActionsCurrentSet.skippedAt !== null"
+      :is-logged="setActionsCurrentSet.completedAt !== null"
+      :is-trailing-set="
+        setActionsTarget.setNumber ===
+        Math.max(...setActionsTarget.exercise.sets.map((s) => s.setNumber))
+      "
+      :marker="setActionsCurrentSet.marker"
+      @skip="onSkipSet"
+      @unskip="onUnskipSet"
+      @remove="onRemoveSet"
+      @set-marker="onSetMarker"
+    />
+    <AppConfirmDialog
+      :open="editConfirmOpen"
+      title="Edit logged set?"
+      :message="`Set ${editConfirmTarget?.set.setNumber ?? ''} is already logged. Uncheck it to edit, or continue now.`"
+      confirm-label="Edit anyway"
+      @confirm="confirmEditLoggedSet"
+      @cancel="editConfirmOpen = false"
+    />
 
     <main class="flex flex-1 flex-col gap-6 px-5 py-6">
       <p v-if="loading" class="text-sm text-mist">Loading…</p>
@@ -372,9 +510,16 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
             :key="set.setNumber"
             class="flex items-center gap-2"
           >
-            <span class="w-14 text-sm text-mist">Set {{ set.setNumber }}</span>
+            <button
+              type="button"
+              class="w-14 text-left text-sm text-mist hover:text-chalk"
+              @click="openSetActions(exercise, set.setNumber)"
+            >
+              Set {{ set.setNumber }}
+            </button>
 
-            <span v-if="detail.complete" class="text-sm text-chalk">
+            <span v-if="set.skippedAt" class="text-sm text-mist">Skipped</span>
+            <span v-else-if="detail.complete" class="text-sm text-chalk">
               {{ set.weight }} × {{ set.reps }}
             </span>
 
@@ -384,23 +529,69 @@ async function onSaveNote({ content, pinned }: { content: string; pinned: boolea
                 type="text"
                 inputmode="decimal"
                 placeholder="Weight"
-                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass"
+                :readonly="set.completedAt !== null"
+                class="w-20 rounded-lg border px-3 py-2 text-base outline-none focus-visible:border-brass"
+                :class="
+                  set.completedAt !== null
+                    ? 'border-line bg-surface text-mist'
+                    : 'border-line bg-surface-raised text-chalk placeholder:text-mist/60'
+                "
+                @focus="onLockedFocus($event, exercise, set)"
                 @input="setIndex === 0 && onFirstSetWeightInput(exercise)"
               />
-              <input
-                v-model="draft[draftKey(exercise.id, set.setNumber)]!.reps"
-                type="number"
-                inputmode="numeric"
-                :placeholder="set.repsPlaceholder !== null ? `${set.repsPlaceholder} reps` : 'Reps'"
-                class="w-20 rounded-lg border border-line bg-surface-raised px-3 py-2 text-base text-chalk placeholder:text-mist/60 outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
-              <AppButton
-                variant="secondary"
-                :disabled="!canLog(exercise.id, set.setNumber)"
-                @click="logSet(exercise.id, set.setNumber)"
+              <div class="relative">
+                <input
+                  v-model="draft[draftKey(exercise.id, set.setNumber)]!.reps"
+                  type="number"
+                  inputmode="numeric"
+                  :placeholder="
+                    set.repsPlaceholder !== null ? `${set.repsPlaceholder} reps` : 'Reps'
+                  "
+                  :readonly="set.completedAt !== null"
+                  class="w-20 rounded-lg border px-3 py-2 text-base outline-none focus-visible:border-brass [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  :class="
+                    set.completedAt !== null
+                      ? 'border-line bg-surface text-mist'
+                      : 'border-line bg-surface-raised text-chalk placeholder:text-mist/60'
+                  "
+                  @focus="onLockedFocus($event, exercise, set)"
+                />
+                <span
+                  v-if="set.marker !== null"
+                  class="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-mist/70 text-[10px] font-bold text-ink"
+                >
+                  M
+                </span>
+              </div>
+              <button
+                type="button"
+                :disabled="set.completedAt === null && !canLog(exercise.id, set.setNumber)"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                :class="
+                  set.completedAt !== null
+                    ? 'bg-brass text-ink'
+                    : 'border border-line text-mist hover:border-brass/60 hover:text-brass'
+                "
+                :aria-label="set.completedAt !== null ? 'Unlog set' : 'Log set'"
+                @click="
+                  set.completedAt !== null
+                    ? onUnlog(exercise, set)
+                    : logSet(exercise.id, set.setNumber)
+                "
               >
-                {{ set.completedAt ? 'Update' : 'Log' }}
-              </AppButton>
+                <svg
+                  v-if="set.completedAt !== null"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="h-4 w-4"
+                >
+                  <path d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
             </template>
           </div>
 

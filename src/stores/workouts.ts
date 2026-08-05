@@ -10,6 +10,7 @@ interface SetRow {
   weight: number | null
   reps: number | null
   completed_at: string | null
+  skipped_at: string | null
 }
 
 interface WeekNoteRow {
@@ -58,13 +59,18 @@ export interface WeekSummary {
   workouts: WorkoutSummary[]
 }
 
+export type SetMarker = 'myrep' | 'myrep_match'
+
 export interface SetViewModel {
   setNumber: number
   weight: number | null
   reps: number | null
   completedAt: string | null
+  skippedAt: string | null
   weightPrefill: number | null
   repsPlaceholder: number | null
+  repsPrefill: number | null
+  marker: SetMarker | null
 }
 
 export interface ExerciseNote {
@@ -108,8 +114,12 @@ export interface ExerciseHistoryEntry {
   sets: ExerciseHistorySet[]
 }
 
+function isSetResolved(set: SetRow): boolean {
+  return set.completed_at !== null || set.skipped_at !== null
+}
+
 function isExerciseComplete(exercise: ExerciseRow): boolean {
-  const loggedCount = exercise.workout_sets.filter((set) => set.completed_at !== null).length
+  const loggedCount = exercise.workout_sets.filter(isSetResolved).length
   return loggedCount >= exercise.target_sets
 }
 
@@ -361,7 +371,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
             id,
             order_index,
             target_sets,
-            workout_sets ( id, set_number, completed_at )
+            workout_sets ( id, set_number, completed_at, skipped_at )
           )
         )
       `,
@@ -405,7 +415,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
         `
         id, exercise_id, order_index, target_sets,
         exercises ( name ),
-        workout_sets ( set_number, weight, reps, completed_at ),
+        workout_sets ( set_number, weight, reps, completed_at, skipped_at ),
         exercise_week_notes ( content )
       `,
       )
@@ -432,6 +442,23 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     const pinnedByExerciseId = new Map(
       (pinnedNoteRows ?? []).map((row) => [row.exercise_id as string, row.content as string]),
     )
+
+    const { data: markerRows } =
+      exerciseIds.length > 0
+        ? await supabase
+            .from('exercise_set_markers')
+            .select('exercise_id, set_number, marker_type')
+            .eq('mesocycle_id', mesocycleId)
+            .in('exercise_id', exerciseIds)
+        : { data: [] }
+
+    const markerByExerciseAndSet = new Map<string, SetMarker>()
+    for (const row of markerRows ?? []) {
+      markerByExerciseAndSet.set(
+        `${row.exercise_id as string}:${row.set_number as number}`,
+        row.marker_type as SetMarker,
+      )
+    }
 
     const refWeekId = await resolveReferenceWeekId(mesocycleId, weekNumber, clonedFromId)
 
@@ -466,6 +493,7 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     }
 
     const exerciseDetails: ExerciseDetail[] = exercises.map((exercise) => {
+      const exerciseId = exercise.exercise_id as string
       const orderIndex = exercise.order_index as number
       const targetSets = exercise.target_sets as number
       const loggedByNumber = new Map<number, SetRow>()
@@ -483,18 +511,24 @@ export const useWorkoutsStore = defineStore('workouts', () => {
         .map((setNumber) => {
           const logged = loggedByNumber.get(setNumber)
           const reference = referenceSets?.get(setNumber)
+          const marker = markerByExerciseAndSet.get(`${exerciseId}:${setNumber}`) ?? null
           return {
             setNumber,
             weight: logged?.weight ?? null,
             reps: logged?.reps ?? null,
             completedAt: logged?.completed_at ?? null,
+            skippedAt: logged?.skipped_at ?? null,
             weightPrefill: logged ? null : (reference?.weight ?? null),
             repsPlaceholder:
               logged || !reference || reference.reps === null ? null : reference.reps + 1,
+            repsPrefill:
+              marker === 'myrep_match' && !logged && reference?.reps != null
+                ? reference.reps
+                : null,
+            marker,
           }
         })
 
-      const exerciseId = exercise.exercise_id as string
       const pinnedContent = pinnedByExerciseId.get(exerciseId)
       const weekContent = exercise.exercise_week_notes?.content
       const note: ExerciseNote | null =
@@ -671,6 +705,91 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     return { targetSets: error ? null : targetSets, error }
   }
 
+  async function removeSet(mesocycleWorkoutExerciseId: string, currentTargetSets: number) {
+    if (currentTargetSets <= 1) {
+      return { targetSets: null, error: new Error('Cannot remove the only set.') }
+    }
+
+    const targetSets = currentTargetSets - 1
+    const { error } = await supabase
+      .from('mesocycle_workout_exercises')
+      .update({ target_sets: targetSets })
+      .eq('id', mesocycleWorkoutExerciseId)
+    if (error) return { targetSets: null, error }
+
+    const { error: deleteError } = await supabase
+      .from('workout_sets')
+      .delete()
+      .eq('mesocycle_workout_exercise_id', mesocycleWorkoutExerciseId)
+      .eq('set_number', currentTargetSets)
+
+    return { targetSets, error: deleteError }
+  }
+
+  async function unlogSet(mesocycleWorkoutExerciseId: string, setNumber: number) {
+    const { error } = await supabase
+      .from('workout_sets')
+      .update({ completed_at: null })
+      .eq('mesocycle_workout_exercise_id', mesocycleWorkoutExerciseId)
+      .eq('set_number', setNumber)
+
+    return { error }
+  }
+
+  async function skipSet(mesocycleWorkoutExerciseId: string, setNumber: number) {
+    const { error } = await supabase.from('workout_sets').upsert(
+      {
+        mesocycle_workout_exercise_id: mesocycleWorkoutExerciseId,
+        set_number: setNumber,
+        weight: null,
+        reps: null,
+        completed_at: null,
+        skipped_at: new Date().toISOString(),
+      },
+      { onConflict: 'mesocycle_workout_exercise_id,set_number' },
+    )
+
+    return { error }
+  }
+
+  async function unskipSet(mesocycleWorkoutExerciseId: string, setNumber: number) {
+    const { error } = await supabase
+      .from('workout_sets')
+      .update({ skipped_at: null })
+      .eq('mesocycle_workout_exercise_id', mesocycleWorkoutExerciseId)
+      .eq('set_number', setNumber)
+
+    return { error }
+  }
+
+  async function setSetMarker(input: {
+    mesocycleId: string
+    exerciseId: string
+    setNumber: number
+    marker: SetMarker | null
+  }) {
+    if (input.marker === null) {
+      const { error } = await supabase
+        .from('exercise_set_markers')
+        .delete()
+        .eq('mesocycle_id', input.mesocycleId)
+        .eq('exercise_id', input.exerciseId)
+        .eq('set_number', input.setNumber)
+      return { error }
+    }
+
+    const { error } = await supabase.from('exercise_set_markers').upsert(
+      {
+        mesocycle_id: input.mesocycleId,
+        exercise_id: input.exerciseId,
+        set_number: input.setNumber,
+        marker_type: input.marker,
+      },
+      { onConflict: 'mesocycle_id,exercise_id,set_number' },
+    )
+    return { error }
+  }
+
   interface ExerciseNoteInput {
     mesocycleWorkoutExerciseId: string
     mesocycleId: string
@@ -804,7 +923,12 @@ export const useWorkoutsStore = defineStore('workouts', () => {
     fetchWorkoutDetail,
     fetchExerciseHistory,
     logSet,
+    unlogSet,
     addSet,
+    removeSet,
+    skipSet,
+    unskipSet,
+    setSetMarker,
     saveExerciseNote,
     deleteExerciseNote,
     swapExercise,
