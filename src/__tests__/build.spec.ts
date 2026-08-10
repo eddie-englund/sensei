@@ -182,7 +182,8 @@ async function fillValidForm(wrapper: ReturnType<typeof mount>) {
   await wrapper.find('#mesocycle-name').setValue('Test mesocycle')
   const pickerButton = wrapper.findAll('button').find((b) => b.text() === 'Select exercise')!
   await pickerButton.trigger('click')
-  const exerciseOption = wrapper.findAll('button').find((b) => b.text() === 'Bench Press')!
+  const body = new DOMWrapper(document.body)
+  const exerciseOption = body.findAll('button').find((b) => b.text() === 'Bench Press')!
   await exerciseOption.trigger('click')
 }
 

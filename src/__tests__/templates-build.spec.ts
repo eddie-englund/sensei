@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, DOMWrapper } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import TemplatesBuildView from '../pages/mesocycles/templates/build.vue'
@@ -104,7 +104,8 @@ async function mountTemplatesBuild() {
 async function pickExercise(wrapper: ReturnType<typeof mount>) {
   const pickerButton = wrapper.findAll('button').find((b) => b.text() === 'Select exercise')!
   await pickerButton.trigger('click')
-  const exerciseOption = wrapper.findAll('button').find((b) => b.text() === 'Bench Press')!
+  const body = new DOMWrapper(document.body)
+  const exerciseOption = body.findAll('button').find((b) => b.text() === 'Bench Press')!
   await exerciseOption.trigger('click')
 }
 

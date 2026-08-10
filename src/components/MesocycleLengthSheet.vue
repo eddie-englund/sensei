@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onKeyStroke } from '@vueuse/core'
 import { ref, watch } from 'vue'
 import { useWorkoutsStore } from '@/stores/workouts'
+import AppBottomSheet from '@/components/AppBottomSheet.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 
@@ -69,77 +69,65 @@ function confirmShorten() {
   showShortenConfirm.value = false
   applyChange()
 }
-
-onKeyStroke('Escape', close)
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="fixed inset-0 z-40 bg-ink/70" @click="close" />
-    <section
-      v-if="open"
-      class="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-5 rounded-t-2xl border-t border-line bg-surface px-5 py-5"
+  <AppBottomSheet v-model:open="open">
+    <div class="flex items-center justify-between">
+      <span class="font-sans font-bold text-base tracking-tight text-chalk">
+        Mesocycle length
+      </span>
+      <AppButton variant="icon" aria-label="Close" @click="close">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-5 w-5"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </AppButton>
+    </div>
+
+    <div
+      class="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-6"
     >
-      <div class="flex items-center justify-between">
-        <span class="font-sans font-bold text-base tracking-tight text-chalk">
-          Mesocycle length
+      <div class="flex items-center gap-6">
+        <AppButton
+          variant="icon"
+          aria-label="Fewer weeks"
+          class="h-11 w-11 border border-line text-lg"
+          :disabled="draftWeekCount <= 1"
+          @click="decrement"
+        >
+          −
+        </AppButton>
+        <span class="w-14 text-center font-sans text-3xl font-bold tabular-nums text-chalk">
+          {{ draftWeekCount }}
         </span>
-        <AppButton variant="icon" aria-label="Close" @click="close">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-5 w-5"
-          >
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
+        <AppButton
+          variant="icon"
+          aria-label="More weeks"
+          class="h-11 w-11 border border-line text-lg"
+          @click="increment"
+        >
+          +
         </AppButton>
       </div>
+      <p class="text-sm text-mist">
+        {{ draftWeekCount === 1 ? 'week' : 'weeks' }} · Week {{ draftWeekCount }} will be a deload.
+      </p>
+    </div>
 
-      <div
-        class="flex flex-col items-center gap-3 rounded-xl border border-line bg-surface-raised py-6"
-      >
-        <div class="flex items-center gap-6">
-          <AppButton
-            variant="icon"
-            aria-label="Fewer weeks"
-            class="h-11 w-11 border border-line text-lg"
-            :disabled="draftWeekCount <= 1"
-            @click="decrement"
-          >
-            −
-          </AppButton>
-          <span class="w-14 text-center font-sans text-3xl font-bold tabular-nums text-chalk">
-            {{ draftWeekCount }}
-          </span>
-          <AppButton
-            variant="icon"
-            aria-label="More weeks"
-            class="h-11 w-11 border border-line text-lg"
-            @click="increment"
-          >
-            +
-          </AppButton>
-        </div>
-        <p class="text-sm text-mist">
-          {{ draftWeekCount === 1 ? 'week' : 'weeks' }} · Week {{ draftWeekCount }} will be a
-          deload.
-        </p>
-      </div>
+    <p v-if="errorMessage" class="text-sm text-ember" role="alert">{{ errorMessage }}</p>
 
-      <p v-if="errorMessage" class="text-sm text-ember" role="alert">{{ errorMessage }}</p>
-
-      <AppButton
-        :disabled="saving || draftWeekCount === workouts.weekSummaries.length"
-        @click="save"
-      >
-        {{ saving ? 'Saving…' : 'Save' }}
-      </AppButton>
-    </section>
-  </Teleport>
+    <AppButton :disabled="saving || draftWeekCount === workouts.weekSummaries.length" @click="save">
+      {{ saving ? 'Saving…' : 'Save' }}
+    </AppButton>
+  </AppBottomSheet>
 
   <AppConfirmDialog
     :open="showShortenConfirm"

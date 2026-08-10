@@ -6,4 +6,4 @@
 - [x] Skip set, Remove set, Myorep set, Myorep match set
 - [x] Change exercise (allow user to switch only for that week or for that week and the rest of the mesocyle)
 - [x] Exercise insights (see weights & reps for that exercise via current workout)
-- [ ] Make the app better for ipads and desktop as well or a better admin experience
+- [x] Make the app better for ipads and desktop as well or a better admin experience

@@ -63,6 +63,12 @@ export default defineConfig({
         ...devices['Mobile Safari'],
       },
     },
+    {
+      name: 'tablet',
+      use: {
+        ...devices['iPad Pro 11'],
+      },
+    },
   ],
 
   /* Folder for test artifacts such as screenshots, videos, traces, etc. */

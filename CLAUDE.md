@@ -4,6 +4,10 @@
 
 Sensei is a Vue 3 and Supabase app. It runs on mobile devices. It tracks workout programs. Each program has weeks, workouts, exercises, and logged sets. This repo has only the frontend code. Supabase is the backend. Supabase gives Postgres and Auth. The schema is raw SQL in `supabase/migrations/`.
 
+## Responses to the claude code user
+
+Always respond in ASD-STE100 simplifed english format
+
 ## Styling
 
 Use Tailwind CSS for all styling.
