@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useExercisesStore, type Exercise } from '@/stores/exercises'
 import AppBottomSheet from '@/components/AppBottomSheet.vue'
 import AppButton from '@/components/AppButton.vue'
+import AddExerciseSheet from '@/components/AddExerciseSheet.vue'
 
 const props = defineProps<{ modelValue: string | null }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 const exercisesStore = useExercisesStore()
 const isOpen = ref(false)
+const addOpen = ref(false)
 const search = ref('')
 
 onMounted(() => {
@@ -39,6 +41,10 @@ function select(exerciseId: string) {
   emit('update:modelValue', exerciseId)
   isOpen.value = false
   search.value = ''
+}
+
+function onCreated(exercise: Exercise) {
+  select(exercise.id)
 }
 </script>
 
@@ -77,8 +83,17 @@ function select(exerciseId: string) {
         <p v-if="filtered.length === 0" class="px-1 py-4 text-center text-sm text-mist">
           No exercises found.
         </p>
+        <button
+          type="button"
+          class="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-brass transition-colors hover:bg-surface-raised"
+          @click="addOpen = true"
+        >
+          + Add custom exercise
+        </button>
       </div>
       <AppButton variant="ghost" @click="isOpen = false">Close</AppButton>
     </AppBottomSheet>
+
+    <AddExerciseSheet v-model:open="addOpen" @created="onCreated" />
   </div>
 </template>

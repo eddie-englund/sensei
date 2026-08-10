@@ -7,3 +7,4 @@
 - [x] Change exercise (allow user to switch only for that week or for that week and the rest of the mesocyle)
 - [x] Exercise insights (see weights & reps for that exercise via current workout)
 - [x] Make the app better for ipads and desktop as well or a better admin experience
+- [x] Create custom exercises & general exercises
